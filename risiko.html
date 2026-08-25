@@ -36,9 +36,10 @@
         <div id="turnBanner" class="turn-banner">Caricamento…</div>
         <div id="phaseBadge" class="phase-badge"></div>
       </div>
-      <div class="map-scroll">
+      <div class="map-scroll" id="mapScroll">
         <svg id="mapSvg" viewBox="0 0 860 560" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
+      <div class="map-hint" id="mapHint">Clicca un territorio per iniziare</div>
       <div class="map-legend" id="continentLegend"></div>
     </div>
 
@@ -46,6 +47,11 @@
       <div class="parchment panel-block" id="actionPanel">
         <h3>Azioni</h3>
         <div id="actionContent"></div>
+      </div>
+
+      <div class="parchment panel-block" id="missionPanel">
+        <h3>🎯 Il tuo obiettivo segreto</h3>
+        <div id="missionContent"></div>
       </div>
 
       <div class="parchment panel-block" id="playersPanel">

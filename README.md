@@ -56,7 +56,18 @@ Più tavoli possono essere aperti insieme: ognuno ha un proprio `id` di partita 
 - Fortificazione: puoi spostare armate tra due tuoi territori collegati da una catena di
   territori posseduti (non solo adiacenti diretti), una volta a turno.
 - Eliminazione di un giocatore quando perde l'ultimo territorio (le sue carte passano
-  a chi lo elimina). Vittoria quando un giocatore controlla tutti i territori.
+  a chi lo elimina).
+- **Obiettivi segreti (missioni)**, come nella variante italiana classica: a inizio
+  partita ogni giocatore riceve una carta obiettivo casuale (conquistare due continenti
+  specifici, due continenti + uno a scelta, 24 territori, oppure distruggere le armate
+  di un avversario specifico). Chi completa per primo il proprio obiettivo vince subito
+  la partita; resta comunque valida anche la vittoria "classica" per conquista di tutti
+  i 42 territori. L'obiettivo è visibile solo nel tuo pannello laterale e viene rivelato
+  a tutti solo a fine partita.
+  ⚠️ Nota tecnica: lo stato di gioco è condiviso in un'unica riga del database, quindi
+  un giocatore che ispezionasse manualmente il traffico di rete del browser potrebbe in
+  teoria vedere anche gli obiettivi altrui — per una partita onesta tra amici va benissimo,
+  ma non è una segretezza "a prova di hacker".
 
 ### Monopoly
 - Plancia da 40 caselle con nomi originali (8 gruppi colore da 2-3 vie, 4 stazioni,
