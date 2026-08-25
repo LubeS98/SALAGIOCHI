@@ -1,5 +1,5 @@
 import { supabase, isConfigured, genId, PLAYER_COLORS, savePlayerSession, getPlayerSession, logHistory, fmtTime } from "./supabaseClient.js";
-import { CONTINENTS, TERRITORIES, TERRITORY_MAP, ADJACENCY, areAdjacent, buildDeck, cardSetBonus, isValidCardSet, SYMBOL_ICON } from "./risiko-data.js";
+import { CONTINENTS, TERRITORIES, TERRITORY_MAP, ADJACENCY, areAdjacent, buildDeck, cardSetBonus, isValidCardSet, SYMBOL_ICON, assignMissions, MISSION_ICON } from "./risiko-data.js";
 
 const params = new URLSearchParams(location.search);
 const gameId = params.get("game");
@@ -10,6 +10,11 @@ let players = [];      // righe players
 let me = getPlayerSession(gameId); // {playerId, name}
 let selection = { mode:null, from:null, to:null };
 let lastHistoryIds = new Set();
+let prevArmies = {};       // per animare i floater "+N"
+let prevOwners = {};       // per rilevare conquiste
+let prevCurrentIndex = null;
+let prevPhase = null;
+let confettiFired = false;
 
 const $ = (id)=>document.getElementById(id);
 function toast(msg){
@@ -106,6 +111,7 @@ function render(){
     renderMap();
     renderPlayers();
     renderCards();
+    renderMission();
     renderActionPanel();
     renderTurnBanner();
   }
@@ -159,6 +165,7 @@ async function startGame(){
 
   const order = players.map(p=>p.id).sort(()=>Math.random()-0.5);
   const deck = buildDeck().sort(()=>Math.random()-0.5);
+  const missions = assignMissions(players);
 
   const state = {
     phase: "setup_placement",
@@ -174,7 +181,10 @@ async function startGame(){
     conqueredThisTurn: false,
     fortifyUsed: false,
     eliminated: [],
+    eliminatedBy: {},
+    missions,
     winner: null,
+    winReason: null,
     pendingCardAward: false,
   };
   await supabase.from("games").update({ state, status:"playing" }).eq("id", gameId);
@@ -184,17 +194,118 @@ async function startGame(){
 }
 
 // ============================================================
+// GEOMETRIA — sagome dei continenti (convex hull "gonfiato" e arrotondato)
+// ============================================================
+function convexHull(points){
+  const pts = [...points].sort((a,b)=> a.x-b.x || a.y-b.y);
+  if(pts.length < 3) return pts;
+  const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lower=[];
+  for(const p of pts){
+    while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
+    lower.push(p);
+  }
+  const upper=[];
+  for(let i=pts.length-1;i>=0;i--){
+    const p=pts[i];
+    while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
+    upper.push(p);
+  }
+  upper.pop(); lower.pop();
+  const hull = lower.concat(upper);
+  return hull.length >= 3 ? hull : pts;
+}
+function inflatePoints(hull, margin){
+  const cx = hull.reduce((s,p)=>s+p.x,0)/hull.length;
+  const cy = hull.reduce((s,p)=>s+p.y,0)/hull.length;
+  return hull.map(p=>{
+    const dx=p.x-cx, dy=p.y-cy;
+    const len=Math.hypot(dx,dy)||1;
+    return { x:p.x+dx/len*margin, y:p.y+dy/len*margin };
+  });
+}
+function smoothBlobPath(points){
+  if(points.length<3) return "";
+  const mid=(a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
+  let d = "";
+  const start = mid(points[points.length-1], points[0]);
+  d += `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} `;
+  for(let i=0;i<points.length;i++){
+    const p = points[i];
+    const next = points[(i+1)%points.length];
+    const m = mid(p,next);
+    d += `Q ${p.x.toFixed(1)} ${p.y.toFixed(1)} ${m.x.toFixed(1)} ${m.y.toFixed(1)} `;
+  }
+  d += "Z";
+  return d;
+}
+function continentBlobPath(contId){
+  const pts = TERRITORIES.filter(t=>t.cont===contId).map(t=>({x:t.x,y:t.y}));
+  if(pts.length < 3){
+    const cx = pts.reduce((s,p)=>s+p.x,0)/pts.length, cy = pts.reduce((s,p)=>s+p.y,0)/pts.length;
+    return `M ${cx-40} ${cy-30} Q ${cx} ${cy-60} ${cx+40} ${cy-30} Q ${cx+55} ${cy} ${cx+40} ${cy+30} Q ${cx} ${cy+60} ${cx-40} ${cy+30} Q ${cx-55} ${cy} ${cx-40} ${cy-30} Z`;
+  }
+  const hull = convexHull(pts);
+  const inflated = inflatePoints(hull, 36);
+  return smoothBlobPath(inflated);
+}
+function centroidOf(contId){
+  const pts = TERRITORIES.filter(t=>t.cont===contId);
+  return { x: pts.reduce((s,p)=>s+p.x,0)/pts.length, y: Math.min(...pts.map(p=>p.y)) - 30 };
+}
+
+// ============================================================
 // MAPPA SVG
 // ============================================================
 function buildMapSvg(){
   const svg = $("mapSvg");
   svg.innerHTML = "";
-  const nsLine = (x1,y1,x2,y2)=>{
-    const l = document.createElementNS("http://www.w3.org/2000/svg","line");
-    l.setAttribute("x1",x1); l.setAttribute("y1",y1); l.setAttribute("x2",x2); l.setAttribute("y2",y2);
-    l.setAttribute("class","adj-line");
-    return l;
-  };
+  const NS = "http://www.w3.org/2000/svg";
+
+  // ---------- defs: texture terreno + marker frecce ----------
+  const defs = document.createElementNS(NS,"defs");
+  defs.innerHTML = `
+    <filter id="terrainNoise" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+    <marker id="arrowGold" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="var(--gold-bright)"/>
+    </marker>
+  `;
+  svg.appendChild(defs);
+
+  // ---------- sagome continenti ----------
+  const blobLayer = document.createElementNS(NS,"g");
+  blobLayer.setAttribute("id","continentBlobs");
+  Object.entries(CONTINENTS).forEach(([id,c])=>{
+    const path = document.createElementNS(NS,"path");
+    path.setAttribute("d", continentBlobPath(id));
+    path.setAttribute("class","continent-blob");
+    path.setAttribute("data-cont", id);
+    path.setAttribute("fill", c.color);
+    path.setAttribute("fill-opacity","0.16");
+    path.setAttribute("stroke", c.color);
+    path.setAttribute("stroke-opacity","0.55");
+    path.setAttribute("stroke-width","1.5");
+    blobLayer.appendChild(path);
+
+    const centroid = centroidOf(id);
+    const label = document.createElementNS(NS,"text");
+    label.setAttribute("class","continent-label");
+    label.setAttribute("x", centroid.x);
+    label.setAttribute("y", centroid.y);
+    label.setAttribute("fill", c.color);
+    label.setAttribute("font-size","13");
+    label.textContent = c.name;
+    blobLayer.appendChild(label);
+  });
+  svg.appendChild(blobLayer);
+
+  // ---------- linee di adiacenza ----------
+  const lineLayer = document.createElementNS(NS,"g");
+  lineLayer.setAttribute("id","adjLines");
   const drawn = new Set();
   for(const [id, set] of Object.entries(ADJACENCY)){
     const a = TERRITORY_MAP[id];
@@ -202,50 +313,76 @@ function buildMapSvg(){
       const key = [id,otherId].sort().join("|");
       if(drawn.has(key)) return; drawn.add(key);
       const b = TERRITORY_MAP[otherId];
-      svg.appendChild(nsLine(a.x,a.y,b.x,b.y));
+      const l = document.createElementNS(NS,"line");
+      l.setAttribute("x1",a.x); l.setAttribute("y1",a.y); l.setAttribute("x2",b.x); l.setAttribute("y2",b.y);
+      l.setAttribute("class","adj-line");
+      lineLayer.appendChild(l);
     });
   }
+  svg.appendChild(lineLayer);
+
+  // ---------- overlay mosse possibili (disegnato dinamicamente) ----------
+  const moveLayer = document.createElementNS(NS,"g");
+  moveLayer.setAttribute("id","moveOverlay");
+  svg.appendChild(moveLayer);
+
+  // ---------- nodi territorio ----------
+  const nodeLayer = document.createElementNS(NS,"g");
+  nodeLayer.setAttribute("id","nodeLayer");
   TERRITORIES.forEach(t=>{
-    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+    const g = document.createElementNS(NS,"g");
     g.setAttribute("class","territory-node");
     g.setAttribute("data-id", t.id);
     g.setAttribute("transform", `translate(${t.x},${t.y})`);
 
-    const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    const ring = document.createElementNS(NS,"circle");
+    ring.setAttribute("r", 21);
+    ring.setAttribute("class","ring");
+    g.appendChild(ring);
+
+    const circle = document.createElementNS(NS,"circle");
     circle.setAttribute("r", 16);
     circle.setAttribute("class","territory-circle");
     circle.setAttribute("fill", "#555");
     g.appendChild(circle);
 
-    const label = document.createElementNS("http://www.w3.org/2000/svg","text");
+    const label = document.createElementNS(NS,"text");
     label.setAttribute("class","territory-label");
     label.setAttribute("y", -22);
     label.textContent = t.name;
     g.appendChild(label);
 
-    const badge = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    const badge = document.createElementNS(NS,"circle");
     badge.setAttribute("r", 9);
     badge.setAttribute("cy", 0);
     badge.setAttribute("class","armies-badge");
     g.appendChild(badge);
 
-    const armiesText = document.createElementNS("http://www.w3.org/2000/svg","text");
+    const armiesText = document.createElementNS(NS,"text");
     armiesText.setAttribute("class","territory-armies");
     armiesText.setAttribute("y", 3.5);
     armiesText.textContent = "1";
     g.appendChild(armiesText);
 
     g.addEventListener("click", ()=>onTerritoryClick(t.id));
-    svg.appendChild(g);
+    nodeLayer.appendChild(g);
   });
+  svg.appendChild(nodeLayer);
 
-  // legenda continenti
+  // ---------- effetti transitori (scintille, floater) ----------
+  const fxLayer = document.createElementNS(NS,"g");
+  fxLayer.setAttribute("id","fxLayer");
+  svg.appendChild(fxLayer);
+
+  // legenda continenti (cliccabile per far lampeggiare la sagoma)
   const legend = $("continentLegend");
   legend.innerHTML = "";
   Object.entries(CONTINENTS).forEach(([id,c])=>{
     const item = document.createElement("div");
     item.className = "legend-item";
     item.innerHTML = `<span class="legend-swatch" style="background:${c.color}"></span> ${c.name} (+${c.bonus})`;
+    item.onmouseenter = ()=>document.querySelector(`.continent-blob[data-cont="${id}"]`)?.classList.add("blob-highlight");
+    item.onmouseleave = ()=>document.querySelector(`.continent-blob[data-cont="${id}"]`)?.classList.remove("blob-highlight");
     legend.appendChild(item);
   });
 }
@@ -258,19 +395,121 @@ function ownerColor(playerId){
 function renderMap(){
   const st = game.state;
   if(!st || !st.territories) return;
+  const moveLayer = document.getElementById("moveOverlay");
+  if(moveLayer) moveLayer.innerHTML = "";
+
   TERRITORIES.forEach(t=>{
     const node = document.querySelector(`.territory-node[data-id="${t.id}"]`);
     if(!node) return;
     const info = st.territories[t.id];
     const circle = node.querySelector(".territory-circle");
     const armiesText = node.querySelector(".territory-armies");
+    const badge = node.querySelector(".armies-badge");
     circle.setAttribute("fill", info?.owner ? ownerColor(info.owner) : "#555");
+
+    // rilevazione cambiamenti per animazioni
+    const prevA = prevArmies[t.id];
+    const prevO = prevOwners[t.id];
+    if(info && prevA !== undefined && info.armies > prevA){
+      spawnArmyFloater(t.x, t.y, `+${info.armies - prevA}`);
+      badge.setAttribute("r", 11);
+      setTimeout(()=>badge.setAttribute("r","9"), 220);
+    }
+    if(info && prevO !== undefined && prevO !== info.owner){
+      node.classList.remove("conquest-flash"); void node.offsetWidth;
+      node.classList.add("conquest-flash");
+    }
+    if(info){ prevArmies[t.id] = info.armies; prevOwners[t.id] = info.owner; }
     armiesText.textContent = info?.armies ?? "-";
 
-    node.classList.remove("selected","selectable","pulse");
+    node.classList.remove("selected","selectable","mine","capital-turn");
+    if(info?.owner === me.playerId) node.classList.add("mine");
     if(selection.from === t.id || selection.to === t.id) node.classList.add("selected");
     if(isSelectableNow(t.id)) node.classList.add("selectable");
   });
+
+  // ---------- overlay: linee di mossa possibile ----------
+  if(moveLayer && selection.from && (st.phase === "attack" || st.phase === "fortify") && isMyTurn()){
+    const from = TERRITORY_MAP[selection.from];
+    const NS = "http://www.w3.org/2000/svg";
+    if(st.phase === "attack"){
+      ADJACENCY[selection.from].forEach(otherId=>{
+        const info = st.territories[otherId];
+        if(info.owner === me.playerId) return;
+        const to = TERRITORY_MAP[otherId];
+        const line = document.createElementNS(NS,"line");
+        line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
+        line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
+        line.setAttribute("class","move-line");
+        line.setAttribute("marker-end","url(#arrowGold)");
+        moveLayer.appendChild(line);
+      });
+    } else if(st.phase === "fortify" && !st.fortifyUsed){
+      TERRITORIES.forEach(t=>{
+        if(t.id === selection.from) return;
+        if(st.territories[t.id].owner !== me.playerId) return;
+        if(!connectedOwned(st, selection.from, t.id, me.playerId)) return;
+        if(!areAdjacent(selection.from, t.id)) return; // mostra solo i collegamenti diretti per non affollare la mappa
+        const to = TERRITORY_MAP[t.id];
+        const line = document.createElementNS(NS,"line");
+        line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
+        line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
+        line.setAttribute("class","move-line fortify-line");
+        line.setAttribute("marker-end","url(#arrowGold)");
+        moveLayer.appendChild(line);
+      });
+    }
+  }
+
+  updateMapHint();
+}
+
+function spawnArmyFloater(x,y,text){
+  const fx = document.getElementById("fxLayer");
+  if(!fx) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const t = document.createElementNS(NS,"text");
+  t.setAttribute("x", x); t.setAttribute("y", y-18);
+  t.setAttribute("class","army-floater");
+  t.textContent = text;
+  fx.appendChild(t);
+  setTimeout(()=>t.remove(), 1000);
+}
+
+function spawnClashSpark(x,y){
+  const fx = document.getElementById("fxLayer");
+  if(!fx) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const g = document.createElementNS(NS,"g");
+  g.setAttribute("class","clash-spark");
+  g.setAttribute("transform", `translate(${x},${y})`);
+  g.innerHTML = `
+    <circle r="14" fill="none" stroke="#ffd873" stroke-width="3"/>
+    <path d="M-16,0 L16,0 M0,-16 L0,16 M-11,-11 L11,11 M-11,11 L11,-11" stroke="#ffd873" stroke-width="2.5"/>
+  `;
+  fx.appendChild(g);
+  setTimeout(()=>g.remove(), 600);
+}
+
+function updateMapHint(){
+  const hint = $("mapHint");
+  if(!hint) return;
+  const st = game.state;
+  if(!isMyTurn()){ hint.textContent = "In attesa del tuo turno…"; return; }
+  if(st.phase === "setup_placement" || st.phase === "reinforce"){ hint.textContent = "Clicca un tuo territorio per piazzare armate"; return; }
+  if(st.phase === "attack"){
+    hint.textContent = selection.from
+      ? "Le linee dorate mostrano i territori nemici attaccabili — clicca un bersaglio"
+      : "Clicca un tuo territorio con 2+ armate per scegliere da dove attaccare";
+    return;
+  }
+  if(st.phase === "fortify"){
+    hint.textContent = selection.from
+      ? "Territori raggiungibili evidenziati — clicca la destinazione"
+      : "Clicca un tuo territorio per spostare armate verso un altro territorio collegato";
+    return;
+  }
+  hint.textContent = "";
 }
 
 function isSelectableNow(tid){
@@ -490,8 +729,11 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
     if(atkRolls[i] > defRolls[i]) defenderLosses++; else attackerLosses++;
   }
   const dice = row.querySelectorAll(".die");
-  atkRolls.forEach((v,i)=>{ dice[i].textContent=v; dice[i].classList.remove("rolling"); });
-  defRolls.forEach((v,i)=>{ dice[atkRolls.length+i].textContent=v; dice[atkRolls.length+i].classList.remove("rolling"); });
+  atkRolls.forEach((v,i)=>{ dice[i].textContent=v; dice[i].classList.remove("rolling"); dice[i].classList.add("settled"); });
+  defRolls.forEach((v,i)=>{ dice[atkRolls.length+i].textContent=v; dice[atkRolls.length+i].classList.remove("rolling"); dice[atkRolls.length+i].classList.add("settled"); });
+  for(let i=0;i<pairs;i++){
+    if(atkRolls[i] > defRolls[i]) dice[i].classList.add("win"); else dice[atkRolls.length+i].classList.add("win");
+  }
 
   st.territories[fromId].armies -= attackerLosses;
   st.territories[toId].armies -= defenderLosses;
@@ -513,6 +755,8 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
     const stillOwns = Object.values(st.territories).some(t=>t.owner===defenderId);
     if(!stillOwns && defenderId){
       st.eliminated.push(defenderId);
+      st.eliminatedBy = st.eliminatedBy || {};
+      st.eliminatedBy[defenderId] = me.playerId;
       // trasferisci le carte del giocatore eliminato a chi lo elimina
       st.hands[me.playerId] = [...(st.hands[me.playerId]||[]), ...(st.hands[defenderId]||[])];
       st.hands[defenderId] = [];
@@ -520,7 +764,7 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
     }
 
     await saveState(st);
-    const winnerCheck = checkVictory(st);
+    const winnerCheck = checkVictory(st) || checkMissionVictory(st, me.playerId);
     if(winnerCheck) return;
 
     $("attackModal").style.display = "none";
@@ -661,6 +905,59 @@ async function tradeCards(){
 }
 
 // ============================================================
+// OBIETTIVO SEGRETO
+// ============================================================
+function renderMission(){
+  const st = game.state;
+  const box = $("missionContent");
+  const mission = st.missions?.[me.playerId];
+  if(!mission){ box.innerHTML = `<p class="text-xs" style="color:var(--ink-soft)">Nessun obiettivo assegnato.</p>`; return; }
+
+  let progressHtml = "";
+  if(mission.type === "territories"){
+    const owned = ownedCount(st, me.playerId);
+    const pct = Math.min(100, Math.round(owned/mission.count*100));
+    progressHtml = `
+      <div class="mission-progress-bar"><div class="mission-progress-fill" style="width:${pct}%"></div></div>
+      <div class="text-xs" style="color:var(--ink-soft); margin-top:4px;">${owned} / ${mission.count} territori</div>`;
+  } else if(mission.type === "continents" || mission.type === "continents_plus_one"){
+    const chips = mission.continents.map(c=>{
+      const done = continentFullyOwned(st, c, me.playerId);
+      return `<span class="mission-chip ${done?'done':''}">${done?'✓':'—'} ${CONTINENTS[c].name}</span>`;
+    }).join("");
+    let extra = "";
+    if(mission.type === "continents_plus_one"){
+      const extraCont = Object.keys(CONTINENTS).find(c=>!mission.continents.includes(c) && continentFullyOwned(st, c, me.playerId));
+      extra = `<span class="mission-chip ${extraCont?'done':''}">${extraCont ? '✓ '+CONTINENTS[extraCont].name : '— un terzo a scelta'}</span>`;
+    }
+    progressHtml = `<div class="mission-chips">${chips}${extra}</div>`;
+  } else if(mission.type === "destroy"){
+    const targetAlive = !(st.eliminated||[]).includes(mission.targetId);
+    const byMe = st.eliminatedBy?.[mission.targetId] === me.playerId;
+    const status = byMe ? "✓ Eliminato da te!" : targetAlive ? "In gioco" : "Eliminato da un altro giocatore — ripiega su 24 territori";
+    progressHtml = `<div class="mission-chip ${byMe?'done':''}">${escapeHtml(playerName(mission.targetId))}: ${status}</div>`;
+  }
+
+  box.innerHTML = `
+    <div class="mission-icon">${MISSION_ICON[mission.type]}</div>
+    <p class="text-sm" style="margin:6px 0 10px;">${escapeHtml(mission.text)}</p>
+    ${progressHtml}
+    <p class="text-xs" style="color:var(--ink-soft); margin-top:10px;">🤫 Il tuo obiettivo è segreto: solo tu lo vedi nel tuo pannello.</p>
+  `;
+
+  if(st.phase === "gameover"){
+    const reveal = players.map(p=>{
+      const m = st.missions?.[p.id];
+      if(!m) return "";
+      return `<div class="text-xs" style="margin-top:6px;"><b>${escapeHtml(p.name)}:</b> ${escapeHtml(m.text)}</div>`;
+    }).join("");
+    box.innerHTML += `<div style="margin-top:14px; border-top:1px dashed rgba(0,0,0,.15); padding-top:10px;">
+      <b class="text-xs">Obiettivi rivelati a fine partita</b>${reveal}
+    </div>`;
+  }
+}
+
+// ============================================================
 // PANNELLO AZIONI
 // ============================================================
 function renderActionPanel(){
@@ -708,7 +1005,9 @@ function renderActionPanel(){
     return;
   }
   if(st.phase === "gameover"){
-    content.innerHTML = `<p><b>🏆 ${playerName(st.winner)} ha conquistato il mondo!</b></p>`;
+    content.innerHTML = st.winReason === "mission"
+      ? `<p><b>🏆 ${playerName(st.winner)} ha completato il proprio obiettivo segreto e vince la partita!</b></p>`
+      : `<p><b>🏆 ${playerName(st.winner)} ha conquistato il mondo intero!</b></p>`;
   }
 }
 
@@ -739,6 +1038,7 @@ function checkVictory(st){
     const winner = [...owners][0];
     st.phase = "gameover";
     st.winner = winner;
+    st.winReason = "world";
     supabase.from("games").update({ state: st, status:"finished", winner_id: winner }).eq("id", gameId);
     logHistory(gameId, null, "Sistema", "victory", `🏆 ${playerName(winner)} ha conquistato il mondo intero!`);
     game.state = st; game.status = "finished";
@@ -746,6 +1046,49 @@ function checkVictory(st){
     return true;
   }
   return false;
+}
+
+function ownedCount(st, playerId){
+  return Object.values(st.territories).filter(t=>t.owner===playerId).length;
+}
+function continentFullyOwned(st, contId, playerId){
+  return TERRITORIES.filter(t=>t.cont===contId).every(t=>st.territories[t.id].owner===playerId);
+}
+
+function isMissionComplete(st, playerId){
+  const mission = st.missions?.[playerId];
+  if(!mission) return false;
+  if(mission.type === "territories"){
+    return ownedCount(st, playerId) >= mission.count;
+  }
+  if(mission.type === "continents"){
+    return mission.continents.every(c=>continentFullyOwned(st, c, playerId));
+  }
+  if(mission.type === "continents_plus_one"){
+    if(!mission.continents.every(c=>continentFullyOwned(st, c, playerId))) return false;
+    return Object.keys(CONTINENTS).some(c=>!mission.continents.includes(c) && continentFullyOwned(st, c, playerId));
+  }
+  if(mission.type === "destroy"){
+    if(st.eliminatedBy?.[mission.targetId] === playerId) return true;
+    if((st.eliminated||[]).includes(mission.targetId) && st.eliminatedBy?.[mission.targetId] !== playerId){
+      return ownedCount(st, playerId) >= 24; // il bersaglio è stato eliminato da un altro: ripiego su 24 territori
+    }
+    return false;
+  }
+  return false;
+}
+
+function checkMissionVictory(st, playerId){
+  if(st.phase === "gameover") return true;
+  if(!isMissionComplete(st, playerId)) return false;
+  st.phase = "gameover";
+  st.winner = playerId;
+  st.winReason = "mission";
+  supabase.from("games").update({ state: st, status:"finished", winner_id: playerId }).eq("id", gameId);
+  logHistory(gameId, null, "Sistema", "victory", `🏆 ${playerName(playerId)} ha completato il proprio obiettivo segreto e vince la partita!`);
+  game.state = st; game.status = "finished";
+  render();
+  return true;
 }
 
 // ============================================================
@@ -779,10 +1122,38 @@ function renderPlayers(){
 function renderTurnBanner(){
   const st = game.state;
   const phaseNames = { setup_placement:"Posizionamento iniziale", reinforce:"Rinforzo", attack:"Attacco", fortify:"Fortificazione", gameover:"Fine partita" };
-  $("turnBanner").textContent = st.phase === "gameover"
+  const banner = $("turnBanner");
+  banner.textContent = st.phase === "gameover"
     ? `🏆 Vince ${playerName(st.winner)}`
     : `Turno di ${playerName(st.order[st.currentPlayerIndex])}${isMyTurn()?" (tu)":""}`;
   $("phaseBadge").textContent = phaseNames[st.phase] || st.phase;
+
+  if(prevCurrentIndex !== null && prevCurrentIndex !== st.currentPlayerIndex){
+    banner.classList.remove("turn-changed"); void banner.offsetWidth;
+    banner.classList.add("turn-changed");
+  }
+  prevCurrentIndex = st.currentPlayerIndex;
+
+  if(st.phase === "gameover" && !confettiFired){
+    confettiFired = true;
+    fireConfetti();
+  }
+}
+
+function fireConfetti(){
+  const panel = document.querySelector(".map-panel");
+  if(!panel) return;
+  const colors = players.map(p=>p.color);
+  for(let i=0;i<70;i++){
+    const piece = document.createElement("div");
+    piece.className = "confetti-piece";
+    piece.style.left = Math.random()*100 + "%";
+    piece.style.background = colors[Math.floor(Math.random()*colors.length)] || "#c9a24b";
+    piece.style.animationDuration = (1.2 + Math.random()*1.4) + "s";
+    piece.style.animationDelay = (Math.random()*0.6) + "s";
+    panel.appendChild(piece);
+    setTimeout(()=>piece.remove(), 3000);
+  }
 }
 
 function renderHistory(items){

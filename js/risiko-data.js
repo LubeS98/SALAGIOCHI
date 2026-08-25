@@ -153,3 +153,42 @@ export function isValidCardSet(cards){
 }
 
 export const SYMBOL_ICON = { fanteria:"🪖", cavalleria:"🐎", artiglieria:"💣", jolly:"⭐" };
+
+// ============================================================
+// OBIETTIVI SEGRETI (missioni) — variante classica italiana
+// ============================================================
+// Le missioni "a continenti fissi" sono uguali per tutte le partite;
+// le missioni "distruggi il giocatore X" e le due "24 territori" completano
+// il mazzo in base al numero di giocatori seduti al tavolo.
+export const FIXED_MISSIONS = [
+  { id:"m_na_af", type:"continents", continents:["nordamerica","africa"], text:"Conquistare i territori del Nord America e dell'Africa." },
+  { id:"m_as_sa", type:"continents", continents:["asia","sudamerica"], text:"Conquistare i territori dell'Asia e del Sud America." },
+  { id:"m_as_af", type:"continents", continents:["asia","africa"], text:"Conquistare i territori dell'Asia e dell'Africa." },
+  { id:"m_na_oc", type:"continents", continents:["nordamerica","oceania"], text:"Conquistare i territori del Nord America e dell'Oceania." },
+  { id:"m_eu_oc_x", type:"continents_plus_one", continents:["europa","oceania"], text:"Conquistare i territori dell'Europa, dell'Oceania e di un terzo continente a scelta." },
+  { id:"m_eu_sa_x", type:"continents_plus_one", continents:["europa","sudamerica"], text:"Conquistare i territori dell'Europa, del Sud America e di un terzo continente a scelta." },
+  { id:"m_24a", type:"territories", count:24, text:"Conquistare 24 territori a scelta, occupando ciascuno con almeno 1 armata." },
+  { id:"m_24b", type:"territories", count:24, text:"Conquistare 24 territori a scelta, occupando ciascuno con almeno 1 armata." },
+];
+
+export function buildMissionPool(players){
+  const destroyMissions = players.map(p=>({
+    id:"destroy_"+p.id, type:"destroy", targetId:p.id,
+    text:`Distruggere completamente le armate del giocatore di colore ${p.name}. (Se qualcun altro lo elimina per primo, il tuo obiettivo diventa conquistare 24 territori.)`
+  }));
+  return [...FIXED_MISSIONS.map(m=>({...m})), ...destroyMissions];
+}
+
+export function assignMissions(players){
+  const pool = buildMissionPool(players).sort(()=>Math.random()-0.5);
+  const assigned = {};
+  players.forEach(p=>{
+    let idx = pool.findIndex(m=> !(m.type==="destroy" && m.targetId===p.id));
+    if(idx === -1) idx = 0;
+    const mission = pool.splice(idx,1)[0];
+    assigned[p.id] = mission;
+  });
+  return assigned;
+}
+
+export const MISSION_ICON = { continents:"🌍", continents_plus_one:"🗺️", territories:"🚩", destroy:"⚔️" };
