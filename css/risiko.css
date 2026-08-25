@@ -9,7 +9,7 @@
 }
 @media(max-width:1000px){ .game-layout{ grid-template-columns:1fr; } }
 
-.map-panel{ padding:16px; }
+.map-panel{ padding:16px; position:relative; overflow:hidden; animation:slideUp .5s ease; }
 .map-header{
   display:flex; justify-content:space-between; align-items:center;
   padding:6px 10px 14px;
@@ -27,36 +27,112 @@
   border-radius:var(--radius-md);
   overflow:auto;
   box-shadow:inset 0 0 40px rgba(0,0,0,.5);
+  position:relative;
 }
 #mapSvg{ width:100%; min-width:760px; display:block; }
 
-.territory-node{ cursor:pointer; }
-.territory-circle{
-  stroke:rgba(0,0,0,.5); stroke-width:1.5;
-  transition:filter .15s ease, stroke .15s ease, stroke-width .15s ease;
+/* ---------- terreno / continenti ---------- */
+.continent-blob{
+  transition:fill-opacity .3s ease, filter .3s ease;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));
 }
-.territory-node:hover .territory-circle{ filter:brightness(1.2); }
-.territory-node.selected .territory-circle{ stroke:var(--gold-bright); stroke-width:3.5; }
-.territory-node.selectable .territory-circle{ stroke:#fff; stroke-width:2; stroke-dasharray:3 2; }
+.continent-blob.blob-highlight{ fill-opacity:.55 !important; }
+.continent-label{
+  font-family:var(--font-display); font-weight:700; letter-spacing:.12em;
+  text-anchor:middle; pointer-events:none; text-transform:uppercase;
+  opacity:.55;
+}
+
+.territory-node{ cursor:pointer; transition:transform .15s ease; transform-box:fill-box; transform-origin:center; }
+.territory-node:hover{ transform:scale(1.1); }
+.territory-circle{
+  stroke:rgba(0,0,0,.55); stroke-width:1.5;
+  transition:fill .35s ease, filter .15s ease, stroke .15s ease, stroke-width .15s ease, r .15s ease;
+}
+.territory-node:hover .territory-circle{ filter:brightness(1.28); }
+.territory-node:hover{ transform-origin:center; }
+.territory-node.selected .territory-circle{ stroke:var(--gold-bright); stroke-width:4; filter:drop-shadow(0 0 6px var(--gold-bright)); }
+.territory-node.selectable .territory-circle{ stroke:#fff; stroke-width:2; }
+.territory-node.selectable .ring{ opacity:1; }
+.territory-node.mine .territory-circle{ stroke:rgba(255,255,255,.55); }
+.territory-node.mine .flag{ opacity:1; }
+
+.ring{
+  fill:none; stroke:#fff; stroke-width:1.6; stroke-dasharray:4 4;
+  opacity:0; transition:opacity .2s ease;
+  animation:marchingAnts 1.4s linear infinite;
+  transform-origin:center;
+}
+@keyframes marchingAnts{ to{ stroke-dashoffset:-16; } }
+
 .territory-label{
-  font-family:var(--font-body); font-size:8.6px; fill:#eee; pointer-events:none;
-  text-anchor:middle; font-weight:600; paint-order:stroke; stroke:rgba(0,0,0,.7); stroke-width:2px;
+  font-family:var(--font-body); font-size:8.4px; fill:#f4ecd8; pointer-events:none;
+  text-anchor:middle; font-weight:600; paint-order:stroke; stroke:rgba(0,0,0,.75); stroke-width:2.2px;
 }
 .territory-armies{
-  font-family:var(--font-mono); font-weight:700; font-size:10.5px; fill:#1a1a1a; pointer-events:none; text-anchor:middle;
+  font-family:var(--font-mono); font-weight:800; font-size:10.5px; fill:#1a1a1a; pointer-events:none; text-anchor:middle;
 }
-.armies-badge{ fill:#f2e8cc; stroke:rgba(0,0,0,.4); stroke-width:1; }
-.adj-line{ stroke:rgba(255,255,255,.15); stroke-width:1; }
+.armies-badge{ fill:#f2e8cc; stroke:rgba(0,0,0,.45); stroke-width:1; transition:r .15s ease; }
+.adj-line{ stroke:rgba(255,255,255,.16); stroke-width:1; }
 
 .territory-node.pulse .territory-circle{ animation:pulseGlow 1s ease-in-out infinite; }
-.conquest-flash{ animation:conquestFlash .6s ease; }
+.territory-node.capital-turn .territory-circle{ animation:currentTurnGlow 1.6s ease-in-out infinite; }
+@keyframes currentTurnGlow{
+  0%,100%{ filter:drop-shadow(0 0 2px rgba(255,255,255,.2)); }
+  50%{ filter:drop-shadow(0 0 9px rgba(255,255,255,.65)); }
+}
+.conquest-flash{ animation:conquestFlash .7s ease; }
 @keyframes conquestFlash{
-  0%{ filter:brightness(2.5); } 100%{ filter:brightness(1); }
+  0%{ filter:brightness(3) saturate(1.6); }
+  100%{ filter:brightness(1); }
+}
+.territory-node.shake{ animation:shakeNode .35s ease; }
+@keyframes shakeNode{
+  0%,100%{ transform:translate(0,0); } 25%{ transform:translate(-2px,1px); }
+  50%{ transform:translate(2px,-1px); } 75%{ transform:translate(-1px,-1px); }
+}
+
+/* ---------- linee di possibile mossa (attacco/rinforzo) ---------- */
+.move-line{
+  fill:none; stroke:var(--gold-bright); stroke-width:2.4; stroke-linecap:round;
+  stroke-dasharray:7 6; opacity:.85;
+  animation:flowDash 1s linear infinite;
+  filter:drop-shadow(0 0 3px rgba(232,200,119,.5));
+}
+@keyframes flowDash{ to{ stroke-dashoffset:-26; } }
+.move-line.fortify-line{ stroke:var(--blue-bank-bright); filter:drop-shadow(0 0 3px rgba(63,127,181,.5)); }
+
+.army-floater{
+  font-family:var(--font-mono); font-weight:800; font-size:12px; fill:var(--gold-bright);
+  text-anchor:middle; pointer-events:none;
+  animation:floatUp 1s ease-out forwards;
+  paint-order:stroke; stroke:rgba(0,0,0,.6); stroke-width:2px;
+}
+@keyframes floatUp{
+  0%{ transform:translateY(0); opacity:0; }
+  15%{ opacity:1; }
+  100%{ transform:translateY(-26px); opacity:0; }
+}
+
+.clash-spark{
+  pointer-events:none;
+  animation:clashPop .55s ease-out forwards;
+}
+@keyframes clashPop{
+  0%{ transform:scale(.2); opacity:0; }
+  35%{ transform:scale(1.15); opacity:1; }
+  100%{ transform:scale(1.7); opacity:0; }
 }
 
 .map-legend{ display:flex; gap:14px; flex-wrap:wrap; padding:12px 10px 4px; }
-.legend-item{ display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--cream-dim); }
+.legend-item{ display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--cream-dim); cursor:default; transition:color .15s ease; }
+.legend-item:hover{ color:var(--gold-bright); }
 .legend-swatch{ width:11px;height:11px;border-radius:3px; }
+.map-hint{
+  font-size:.72rem; color:var(--cream-dim); padding:0 10px 10px; text-align:center;
+  font-family:var(--font-mono); letter-spacing:.03em;
+}
+
 
 .side-panel{ display:flex; flex-direction:column; gap:16px; }
 .panel-block{ padding:18px 18px 16px; }
@@ -79,19 +155,40 @@
 }
 .card-chip.selected{ background:var(--gold); border-color:var(--gold); }
 
+.mission-icon{ font-size:1.8rem; }
+.mission-progress-bar{ background:rgba(0,0,0,.12); border-radius:10px; height:10px; overflow:hidden; }
+.mission-progress-fill{ background:linear-gradient(90deg, var(--red-wax), var(--gold-bright)); height:100%; transition:width .4s ease; }
+.mission-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.mission-chip{
+  font-size:.72rem; padding:4px 9px; border-radius:14px; background:rgba(0,0,0,.08); color:var(--ink-soft);
+  font-weight:600;
+}
+.mission-chip.done{ background:rgba(63,145,85,.22); color:#2c7a45; }
+
 .history-list{ max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
 .history-item{ font-size:.78rem; line-height:1.4; padding-bottom:8px; border-bottom:1px dashed rgba(0,0,0,.12); animation:slideUp .25s ease; }
 .history-item .htime{ font-family:var(--font-mono); font-size:.65rem; color:var(--ink-soft); margin-right:6px; }
 
-.dice-row{ display:flex; gap:10px; justify-content:center; margin:16px 0; }
+.dice-row{ display:flex; gap:10px; justify-content:center; margin:16px 0; perspective:400px; }
 .die{
   width:52px;height:52px; border-radius:10px; background:linear-gradient(160deg,#fff,#e6dcc2);
   display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-weight:800; font-size:1.4rem;
   box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 0 2px rgba(0,0,0,.08); color:var(--ink);
+  transition:transform .2s ease;
 }
-.die.rolling{ animation:rollDice .5s linear infinite; }
+.die.rolling{ animation:rollDice3d .45s linear infinite; }
+@keyframes rollDice3d{
+  0%{ transform:rotateX(0) rotateY(0); }
+  50%{ transform:rotateX(180deg) rotateY(90deg); }
+  100%{ transform:rotateX(360deg) rotateY(180deg); }
+}
+.die.settled{ animation:diceSettle .35s ease; }
+@keyframes diceSettle{
+  0%{ transform:scale(1.3) rotate(-8deg); } 60%{ transform:scale(.94) rotate(3deg); } 100%{ transform:scale(1) rotate(0); }
+}
 .die.attacker{ border-bottom:4px solid var(--red-wax); }
 .die.defender{ border-bottom:4px solid var(--blue-bank); }
+.die.win{ box-shadow:0 0 0 3px var(--gold-bright), 0 6px 14px rgba(0,0,0,.35); }
 
 .stepper{ display:flex; align-items:center; gap:10px; justify-content:center; margin:14px 0; }
 .stepper button{ width:38px;height:38px;border-radius:50%; border:none; background:var(--gold); font-size:1.2rem; cursor:pointer; font-weight:700; }
@@ -100,4 +197,21 @@
 .lobby-player-chip{
   display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:20px;
   background:rgba(0,0,0,.06); font-weight:600; font-size:.85rem;
+}
+
+/* ---------- banner turno animato ---------- */
+.turn-banner{ position:relative; overflow:visible; }
+.turn-banner.turn-changed{ animation:turnPop .5s cubic-bezier(.2,.9,.3,1.3); }
+@keyframes turnPop{
+  0%{ transform:scale(.85); opacity:.3; } 60%{ transform:scale(1.06); } 100%{ transform:scale(1); opacity:1; }
+}
+
+/* ---------- coriandoli vittoria ---------- */
+.confetti-piece{
+  position:absolute; top:-10px; width:8px; height:14px; opacity:.95;
+  animation:confettiFall linear forwards;
+  border-radius:2px;
+}
+@keyframes confettiFall{
+  to{ transform:translateY(620px) rotate(540deg); opacity:0; }
 }
