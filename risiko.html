@@ -502,13 +502,13 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
 const SUPABASE_URL = "https://fptpptacaqtgivzxdpuq.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwdHBwdGFjYXF0Z2l2enhkcHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NzQ2OTAsImV4cCI6MjEwMzI1MDY5MH0.RE-aakPkQnYgQSK6rJ-dLK5bFdWrBRIu3u6f2MuHg84";
 
-const supabase = (SUPABASE_URL.includes("fptpptacaqtgivzxdpuq"))
+const supabase = (SUPABASE_URL.includes("YOUR-PROJECT-REF"))
   ? null
   : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { realtime:{ params:{ eventsPerSecond:10 } } });
 
 const isConfigured = () =>
-  !SUPABASE_URL.includes("fptpptacaqtgivzxdpuq") &&
-  !SUPABASE_ANON_KEY.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwdHBwdGFjYXF0Z2l2enhkcHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NzQ2OTAsImV4cCI6MjEwMzI1MDY5MH0.RE-aakPkQnYgQSK6rJ-dLK5bFdWrBRIu3u6f2MuHg84");
+  !SUPABASE_URL.includes("YOUR-PROJECT-REF") &&
+  !SUPABASE_ANON_KEY.includes("YOUR-ANON-PUBLIC-KEY");
 
 // ---------- utilità comuni ----------
 function genCode(len = 5){
