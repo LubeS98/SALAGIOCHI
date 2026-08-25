@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sala da Gioco — Risiko & Monopoly online</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .hero{
+    padding:64px 24px 40px;
+    text-align:center;
+  }
+  .hero .eyebrow{
+    font-family:var(--font-mono); letter-spacing:.25em; font-size:.72rem;
+    color:var(--gold-bright); text-transform:uppercase;
+  }
+  .hero h1{
+    font-size:clamp(2.2rem, 5vw, 3.4rem);
+    color:var(--cream);
+    margin:10px 0 12px;
+    text-shadow:0 2px 0 rgba(0,0,0,.4);
+  }
+  .hero h1 span{ color:var(--gold-bright); }
+  .hero p{ color:var(--cream-dim); max-width:520px; margin:0 auto; }
+
+  .boxes{
+    display:grid; grid-template-columns:1fr 1fr; gap:34px;
+    max-width:900px; margin:44px auto 10px; padding:0 24px;
+  }
+  @media(max-width:640px){ .boxes{ grid-template-columns:1fr; } }
+
+  .game-box{
+    position:relative;
+    border-radius:var(--radius-lg);
+    padding:30px 26px 26px;
+    cursor:pointer;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:var(--shadow-deep);
+    transition:transform .28s cubic-bezier(.2,.9,.3,1.1), box-shadow .28s ease;
+    animation:floaty 6s ease-in-out infinite;
+  }
+  .game-box:nth-child(2){ animation-delay:.6s; --r:0deg; }
+  .game-box:hover{ transform:translateY(-10px) scale(1.02); box-shadow:0 30px 60px -15px rgba(0,0,0,.7); }
+  .game-box.risiko{ background:linear-gradient(160deg, #7a2418, #3c120c); }
+  .game-box.monopoly{ background:linear-gradient(160deg, #1c4a6b, #0d2536); }
+  .game-box .badge{
+    font-family:var(--font-mono); font-size:.68rem; letter-spacing:.15em;
+    color:rgba(255,255,255,.65); text-transform:uppercase;
+  }
+  .game-box h2{ font-size:1.7rem; color:#fff; margin:8px 0 10px; }
+  .game-box p{ color:rgba(255,255,255,.75); font-size:.88rem; margin:0 0 20px; min-height:40px; }
+  .game-box .icon{
+    position:absolute; right:-10px; bottom:-16px; font-size:6rem; opacity:.16;
+    filter:blur(.2px);
+  }
+  .game-box .actions{ display:flex; gap:10px; position:relative; z-index:2; }
+
+  .divider-row{
+    display:flex; align-items:center; gap:14px; max-width:1120px; margin:52px auto 24px; padding:0 24px;
+  }
+  .divider-row .line{ flex:1; height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); }
+  .divider-row span{ font-family:var(--font-display); letter-spacing:.08em; color:var(--gold-bright); font-size:.95rem; white-space:nowrap; }
+
+  .games-list{ max-width:1120px; margin:0 auto; padding:0 24px 80px; }
+  .tables-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; margin-top:18px; }
+
+  .table-card{
+    display:flex; gap:14px; padding:16px; align-items:center;
+  }
+  .table-card .info{ flex:1; min-width:0; }
+  .table-card .info h3{ font-size:1.02rem; margin-bottom:2px; }
+  .table-card .meta{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .pill{
+    font-size:.68rem; font-weight:700; padding:3px 9px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .pill-risiko{ background:rgba(163,57,43,.18); color:#e46b57; }
+  .pill-monopoly{ background:rgba(46,95,138,.18); color:#6aa8d8; }
+  .pill-lobby{ background:rgba(63,145,85,.18); color:#5fce80; }
+  .pill-playing{ background:rgba(201,162,75,.2); color:var(--gold-bright); }
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--cream-dim);
+    border:1px dashed rgba(255,255,255,.2); border-radius:var(--radius-md);
+  }
+
+  footer{ text-align:center; padding:30px; color:var(--cream-dim); font-size:.78rem; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="brand"><span class="dot"></span> SALA DA GIOCO</a>
+  <div class="text-xs muted mono" id="connStatus">connessione…</div>
+</div>
+
+<section class="hero">
+  <div class="eyebrow">Feltro verde, dadi in mano, amici in linea</div>
+  <h1>Risiko & <span>Monopoly</span> al tavolo digitale</h1>
+  <p>Apri una partita, condividi il codice con gli amici e gioca in tempo reale — con storico completo di ogni mossa.</p>
+</section>
+
+<div class="boxes">
+  <div class="game-box risiko" onclick="openCreate('risiko')">
+    <div class="icon">⚔</div>
+    <div class="badge">Strategia · 2–6 giocatori</div>
+    <h2>Risiko</h2>
+    <p>Conquista i continenti, rinforza le armate, gioca le tris di carte territorio.</p>
+    <div class="actions" onclick="event.stopPropagation()">
+      <button class="btn btn-red" onclick="openCreate('risiko')">Nuova partita</button>
+      <button class="btn btn-ghost" onclick="openJoin('risiko')">Unisciti</button>
+    </div>
+  </div>
+  <div class="game-box monopoly" onclick="openCreate('monopoly')">
+    <div class="icon">🏠</div>
+    <div class="badge">Economia · 2–6 giocatori</div>
+    <h2>Monopoly</h2>
+    <p>Compra vie, costruisci case e hotel, riscuoti affitti e manda in bancarotta gli avversari.</p>
+    <div class="actions" onclick="event.stopPropagation()">
+      <button class="btn btn-blue" onclick="openCreate('monopoly')">Nuova partita</button>
+      <button class="btn btn-ghost" onclick="openJoin('monopoly')">Unisciti</button>
+    </div>
+  </div>
+</div>
+
+<div class="divider-row"><div class="line"></div><span>Tavoli aperti</span><div class="line"></div></div>
+
+<div class="games-list">
+  <div class="flex between" style="align-items:center;">
+    <div class="text-sm muted">Partite in corso o in attesa di giocatori, aggiornate in tempo reale.</div>
+    <button class="btn btn-ghost btn-sm" id="refreshBtn">↻ Aggiorna</button>
+  </div>
+  <div class="tables-grid" id="tablesGrid">
+    <div class="empty-state">Caricamento tavoli…</div>
+  </div>
+</div>
+
+<footer>Sala da Gioco — progetto personale, non affiliato a Hasbro. Le regole implementate seguono le regole standard.</footer>
+
+<!-- ---------- MODALE CREA PARTITA ---------- -->
+<div class="modal-backdrop" id="createModal" style="display:none;">
+  <div class="modal parchment">
+    <button class="close-x" onclick="closeModals()">&times;</button>
+    <h2 id="createTitle">Nuova partita</h2>
+    <div class="text-sm" style="color:var(--ink-soft)">Configura il tavolo e invita i tuoi amici col codice.</div>
+    <div class="field">
+      <label>Nome partita</label>
+      <input id="gameNameInput" placeholder="Es. Sfida del sabato sera" maxlength="40" />
+    </div>
+    <div class="field">
+      <label>Il tuo nome</label>
+      <input id="hostNameInput" placeholder="Es. Marco" maxlength="20" />
+    </div>
+    <div class="field">
+      <label>Il tuo colore</label>
+      <div id="colorPicker" class="flex gap-8" style="flex-wrap:wrap;"></div>
+    </div>
+    <button class="btn btn-gold btn-block" id="createConfirmBtn" style="margin-top:8px;">Crea tavolo →</button>
+  </div>
+</div>
+
+<!-- ---------- MODALE UNISCITI ---------- -->
+<div class="modal-backdrop" id="joinModal" style="display:none;">
+  <div class="modal parchment">
+    <button class="close-x" onclick="closeModals()">&times;</button>
+    <h2>Unisciti a una partita</h2>
+    <div class="text-sm" style="color:var(--ink-soft)">Inserisci il codice a 5 caratteri condiviso dall'host.</div>
+    <div class="field">
+      <label>Codice tavolo</label>
+      <input id="joinCodeInput" placeholder="ES. AB3XZ" maxlength="5" style="text-transform:uppercase; letter-spacing:.15em; font-family:var(--font-mono); font-weight:700;" />
+    </div>
+    <div class="field">
+      <label>Il tuo nome</label>
+      <input id="joinNameInput" placeholder="Es. Giulia" maxlength="20" />
+    </div>
+    <div class="field">
+      <label>Il tuo colore</label>
+      <div id="joinColorPicker" class="flex gap-8" style="flex-wrap:wrap;"></div>
+    </div>
+    <button class="btn btn-gold btn-block" id="joinConfirmBtn" style="margin-top:8px;">Entra al tavolo →</button>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script type="module" src="js/lobby.js"></script>
+</body>
+</html>

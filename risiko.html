@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Risiko — Sala da Gioco</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="css/risiko.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="brand"><span class="dot"></span> SALA DA GIOCO</a>
+  <div class="flex gap-12" style="align-items:center;">
+    <div class="text-xs muted mono" id="gameCodeBadge">—</div>
+    <button class="btn btn-ghost btn-sm" id="inviteBtn">Copia invito</button>
+  </div>
+</div>
+
+<!-- ---------- SCHERMATA LOBBY (in attesa di giocatori) ---------- -->
+<div id="lobbyScreen" class="container" style="padding-top:40px; display:none;">
+  <div class="parchment" style="padding:30px; max-width:640px; margin:0 auto;">
+    <h2 id="lobbyGameName">Tavolo Risiko</h2>
+    <p class="text-sm" style="color:var(--ink-soft)">In attesa che tutti i giocatori si uniscano. Condividi il codice qui sopra.</p>
+    <div id="lobbyPlayers" class="flex gap-12" style="flex-wrap:wrap; margin:18px 0;"></div>
+    <div id="lobbyControls"></div>
+  </div>
+</div>
+
+<!-- ---------- SCHERMATA DI GIOCO ---------- -->
+<div id="gameScreen" style="display:none;">
+  <div class="game-layout">
+
+    <div class="map-panel wood-frame">
+      <div class="map-header">
+        <div id="turnBanner" class="turn-banner">Caricamento…</div>
+        <div id="phaseBadge" class="phase-badge"></div>
+      </div>
+      <div class="map-scroll">
+        <svg id="mapSvg" viewBox="0 0 860 560" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="map-legend" id="continentLegend"></div>
+    </div>
+
+    <div class="side-panel">
+      <div class="parchment panel-block" id="actionPanel">
+        <h3>Azioni</h3>
+        <div id="actionContent"></div>
+      </div>
+
+      <div class="parchment panel-block" id="playersPanel">
+        <h3>Giocatori</h3>
+        <div id="playersList"></div>
+      </div>
+
+      <div class="parchment panel-block" id="cardsPanel">
+        <h3>Le tue carte</h3>
+        <div id="cardsList" class="flex gap-8" style="flex-wrap:wrap;"></div>
+        <button class="btn btn-gold btn-sm" id="tradeCardsBtn" style="margin-top:10px; display:none;">Gioca tris</button>
+      </div>
+
+      <div class="parchment panel-block" id="historyPanel">
+        <h3>Storico partita</h3>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- modale attacco -->
+<div class="modal-backdrop" id="attackModal" style="display:none;">
+  <div class="modal parchment" style="max-width:480px;">
+    <button class="close-x" onclick="document.getElementById('attackModal').style.display='none'">&times;</button>
+    <h2>Battaglia</h2>
+    <div id="attackModalBody"></div>
+  </div>
+</div>
+
+<!-- modale generico numero -->
+<div class="modal-backdrop" id="numberModal" style="display:none;">
+  <div class="modal parchment" style="max-width:380px;">
+    <button class="close-x" onclick="document.getElementById('numberModal').style.display='none'">&times;</button>
+    <h2 id="numberModalTitle">Armate</h2>
+    <div id="numberModalBody"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script type="module" src="js/risiko.js"></script>
+</body>
+</html>
