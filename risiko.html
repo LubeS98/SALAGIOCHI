@@ -499,16 +499,16 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
 // Sostituisci questi due valori con quelli del TUO progetto Supabase:
 // Project Settings > API > Project URL / anon public key
 // ============================================================
-const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+const SUPABASE_URL = "https://fptpptacaqtgivzxdpuq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwdHBwdGFjYXF0Z2l2enhkcHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NzQ2OTAsImV4cCI6MjEwMzI1MDY5MH0.RE-aakPkQnYgQSK6rJ-dLK5bFdWrBRIu3u6f2MuHg84";
 
 const supabase = (SUPABASE_URL.includes("YOUR-PROJECT-REF"))
   ? null
   : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { realtime:{ params:{ eventsPerSecond:10 } } });
 
 const isConfigured = () =>
-  !SUPABASE_URL.includes("YOUR-PROJECT-REF") &&
-  !SUPABASE_ANON_KEY.includes("YOUR-ANON-PUBLIC-KEY");
+  !SUPABASE_URL.includes("fptpptacaqtgivzxdpuq") &&
+  !SUPABASE_ANON_KEY.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwdHBwdGFjYXF0Z2l2enhkcHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NzQ2OTAsImV4cCI6MjEwMzI1MDY5MH0.RE-aakPkQnYgQSK6rJ-dLK5bFdWrBRIu3u6f2MuHg84");
 
 // ---------- utilità comuni ----------
 function genCode(len = 5){
@@ -935,12 +935,21 @@ async function loadHistory(){
   renderHistory(data||[]);
 }
 
+// Coalesce più eventi realtime ravvicinati (es. update multipli in rapida
+// sequenza) in un solo render, invece di uno per evento.
+let renderScheduled = false;
+function scheduleRender(){
+  if(renderScheduled) return;
+  renderScheduled = true;
+  requestAnimationFrame(()=>{ renderScheduled = false; render(); });
+}
+
 function subscribe(){
   supabase.channel("risiko-"+gameId)
-    .on("postgres_changes", { event:"UPDATE", schema:"public", table:"games", filter:`id=eq.${gameId}` }, (payload)=>{ game = payload.new; render(); })
+    .on("postgres_changes", { event:"UPDATE", schema:"public", table:"games", filter:`id=eq.${gameId}` }, (payload)=>{ game = payload.new; scheduleRender(); })
     .on("postgres_changes", { event:"*", schema:"public", table:"players", filter:`game_id=eq.${gameId}` }, async ()=>{
       const { data } = await supabase.from("players").select("*").eq("game_id", gameId).order("seat");
-      players = data || []; render();
+      players = data || []; scheduleRender();
     })
     .on("postgres_changes", { event:"INSERT", schema:"public", table:"history", filter:`game_id=eq.${gameId}` }, (payload)=>{
       if(lastHistoryIds.has(payload.new.id)) return;
@@ -1070,7 +1079,13 @@ function buildGlobe(){
     .labelResolution(2)
     .labelAltitude(0.012)
     .labelLabel(d=>tooltipHtml(d.id))
-    .onLabelHover(d=>{ hoveredId = d ? d.id : null; renderArcs(); document.body.style.cursor = d ? "pointer" : ""; })
+    .onLabelHover(d=>{
+      const id = d ? d.id : null;
+      document.body.style.cursor = d ? "pointer" : "";
+      if(id === hoveredId) return; // evita rebuild archi ripetuti durante il semplice movimento del mouse
+      hoveredId = id;
+      renderArcs();
+    })
     .onLabelClick(d=>{ if(d) onTerritoryClick(d.id); })
     // archi
     .arcsData([])
@@ -1084,9 +1099,7 @@ function buildGlobe(){
 
   fitGlobe();
   requestAnimationFrame(fitGlobe);
-  setTimeout(fitGlobe, 120);
-  setTimeout(fitGlobe, 400);
-  setTimeout(fitGlobe, 900);
+  setTimeout(fitGlobe, 250);
   window.addEventListener("resize", fitGlobe);
   const stageEl = document.querySelector(".globe-stage");
   if(stageEl && window.ResizeObserver){ new ResizeObserver(fitGlobe).observe(stageEl); }
@@ -1144,6 +1157,8 @@ function fitGlobe(){
   globe.width(w).height(h);
 }
 
+let lastLabelsSig = null, lastRingsSig = null;
+
 function renderGlobe(){
   const st = game.state;
   if(!st || !st.territories || !globe) return;
@@ -1158,36 +1173,56 @@ function renderGlobe(){
   });
 
   // labels (dot colorato per proprietario + numero armate)
-  const labels = TERRITORIES.map(t=>{
-    const info = st.territories[t.id];
-    const armies = info?.armies ?? 0;
-    const mine = info?.owner === me.playerId;
-    return {
-      id:t.id, lat:t.lat, lng:t.lng, text:String(armies),
-      size: 0.85 + Math.min(armies,25)*0.028,
-      dot: 0.34 + Math.min(armies,18)*0.026,
-      color: info?.owner ? ownerColor(info.owner) : "#5b6b86",
-      mine,
-    };
-  });
-  globe.labelsData(labels);
+  // Ricalcolate solo se armate/proprietari sono davvero cambiati: evita di
+  // ricostruire la mesh three.js del globo ad ogni piccolo giro di render.
+  const labelsSig = TERRITORIES.map(t=>{ const i=st.territories[t.id]; return t.id+":"+(i?.armies??0)+":"+(i?.owner??""); }).join("|");
+  if(labelsSig !== lastLabelsSig){
+    const labels = TERRITORIES.map(t=>{
+      const info = st.territories[t.id];
+      const armies = info?.armies ?? 0;
+      const mine = info?.owner === me.playerId;
+      return {
+        id:t.id, lat:t.lat, lng:t.lng, text:String(armies),
+        size: 0.85 + Math.min(armies,25)*0.028,
+        dot: 0.34 + Math.min(armies,18)*0.026,
+        color: info?.owner ? ownerColor(info.owner) : "#5b6b86",
+        mine,
+      };
+    });
+    globe.labelsData(labels);
+    lastLabelsSig = labelsSig;
+  }
 
   // anelli: selezione (oro) + selezionabili (ciano) + turno corrente (bianco tenue)
-  const rings = [];
-  TERRITORIES.forEach(t=>{
-    if(selection.from === t.id || selection.to === t.id){ rings.push({ lat:t.lat, lng:t.lng, color:"#e8c877", max:5, period:800 }); }
-    else if(isSelectableNow(t.id)){ rings.push({ lat:t.lat, lng:t.lng, color:"#22d3ee", max:3.5, period:1500 }); }
-  });
-  globe.ringsData(rings);
+  const ringsSig = selection.from+":"+selection.to+":"+st.phase+":"+st.currentPlayerIndex;
+  if(ringsSig !== lastRingsSig){
+    const rings = [];
+    TERRITORIES.forEach(t=>{
+      if(selection.from === t.id || selection.to === t.id){ rings.push({ lat:t.lat, lng:t.lng, color:"#e8c877", max:5, period:800 }); }
+      else if(isSelectableNow(t.id)){ rings.push({ lat:t.lat, lng:t.lng, color:"#22d3ee", max:3.5, period:1500 }); }
+    });
+    globe.ringsData(rings);
+    lastRingsSig = ringsSig;
+  }
 
   renderArcs();
   updateStats();
   updateMapHint();
 }
 
+let lastArcsSig = null;
 function renderArcs(){
   if(!globe || !game) return;
   const st = game.state;
+
+  // Firma leggera dello stato rilevante agli archi: se non cambia nulla di
+  // utile (stesso hover, stessa selezione, stessa fase) evitiamo di ricreare
+  // l'array e richiamare globe.arcsData(), che è l'operazione più costosa
+  // durante il semplice passaggio del mouse sulla mappa.
+  const arcsSig = hoveredId+"|"+selection.from+"|"+selection.to+"|"+(st?.phase||"")+"|"+(st?.fortifyUsed?1:0);
+  if(arcsSig === lastArcsSig) return;
+  lastArcsSig = arcsSig;
+
   const arcs = [...BASE_ARCS];
 
   // evidenzia i collegamenti del territorio sotto il mouse
@@ -1439,7 +1474,7 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
   const row = $("diceResultRow"); row.innerHTML = "";
   atkRolls.forEach(()=>{ const d=document.createElement("div"); d.className="die attacker rolling"; d.textContent="?"; row.appendChild(d); });
   defRolls.forEach(()=>{ const d=document.createElement("div"); d.className="die defender rolling"; d.textContent="?"; row.appendChild(d); });
-  await sleep(650);
+  await sleep(380);
 
   let attackerLosses = 0, defenderLosses = 0;
   const pairs = Math.min(atkRolls.length, defRolls.length);
@@ -1483,8 +1518,8 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
   const maxDiceNow = Math.min(3, st.territories[fromId].armies - 1);
   if(maxDiceNow < 1){
     $("battleResultText").textContent += " · Armate insufficienti per continuare.";
-    setTimeout(()=>{ $("attackModal").style.display="none"; selection={mode:null,from:null,to:null}; render(); }, 1400);
-  } else { setTimeout(()=>redraw(), 1200); }
+    setTimeout(()=>{ $("attackModal").style.display="none"; selection={mode:null,from:null,to:null}; render(); }, 700);
+  } else { setTimeout(()=>redraw(), 550); }
 }
 
 function openConquestModal(fromId, toId, minMove){
