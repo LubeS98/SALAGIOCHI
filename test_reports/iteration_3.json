@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 3 frontend e2e testing. FIXED a blocking bug in /app/frontend/src/lib/store.ts (Supabase `v` column is TEXT — kvGet needs JSON.parse and kvSet needs JSON.stringify; previously registration crashed with 'Cannot read properties of undefined (reading some)'). After fix, Auth screen renders correctly, registration+redirect to Hub works, all Hub testIDs (mg-card-lms1/lms2/whowin + 4 SOON) render, pronostici screen loads, chip switching works, team pick records and shows my-current-pick with 'APPROVATO' status (because remote core has autoApprove:true — see below). However, two significant issues remain: (1) Board screen shows 'Nessun dato disponibile' (0 rows) on the FIRST visit right after registration — a state race between session.core update and board's useFocusEffect/load closure; rows populate only after chip switch or navigation away+back. (2) Clicking logout-row triggers 'Maximum update depth exceeded' infinite loop in expo-router Redirect between (tabs)/_layout and index.tsx, effectively hanging the app and blocking the required 'logout → login again' test step. Admin flows (requests/results/advance) could not be validated because our test user was NOT admin (shared Supabase KV already has a first-registered admin from a prior test), but admin-badge / admin section gating logic is correct.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "board.tsx", "issue": "Board leaderboard shows 'Nessun dato disponibile' (0 rows) on first visit right after registration. Reproduced: register a fresh user → tap CLASSIFICA tab from Hub → 0 rows despite core.players containing 20 demo + all registered users. After a chip switch or navigating Hub→Board again, rows correctly show 20-25. Root cause: state race — Board's load() closure captures a stale/empty `core` when useFocusEffect fires the first time; when session context updates, load callback identity changes but re-run isn't happening reliably on first mount.", "testID": "row-p-<username>", "priority": "HIGH"},
+      {"component": "(tabs)/_layout.tsx + index.tsx", "issue": "'Maximum update depth exceeded' infinite loop when tapping logout-row. Redirect ping-pong between (tabs)/_layout (`if (!me) return <Redirect href='/'/>;`) and index.tsx (`if (me) return <Redirect href='/(tabs)'/>;`). Console spams the React error and the app becomes unresponsive — the auth-card selector times out, blocking the 'log out → log back in' test step from the review request. Fix likely requires using router.replace('/') imperatively in `logout()` OR checking pathname before Redirect.", "testID": "logout-row", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Registration → auto-create player → board visibility", "issue": "Player IS successfully added to core.players in Supabase (verified via curl) and to local session.core via setCore(c) in register(). Board eventually sees it but not on first render. Suggests board.tsx `useFocusEffect(useCallback(() => { load(); }, [load]))` doesn't re-run when core changes while board is already focused. Consider adding `useEffect(() => { load(); }, [load])` alongside the focus effect, or subscribing to core changes directly.", "affected_testIDs": ["row-p-<username>", "board-chip-lms1"]},
+      {"flow": "Pick status semantics", "issue": "Remote core config has `autoApprove: true`, so submitPick auto-approves ALL picks (not just admin picks). This means the review-request assertion 'if user is admin, pick is auto-approved; otherwise IN ATTESA' currently does NOT hold in the shared demo DB — non-admins also get APPROVATO. Not a code bug (session.submitPick correctly checks `core.autoApprove || me.role==='admin'`), but the review test expectation is invalid unless autoApprove is flipped to false in Supabase.", "affected_testIDs": ["my-current-pick"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents' — likely comes from expo-image / LinearGradient. Non-blocking but worth tracking."}
+    ]
+  },
+  "test_report_links": [
+    "/tmp/board_direct.png (empty board right after register)",
+    "/tmp/board_after_reload.png (23 rows after reload proves data persistence)",
+    "/tmp/board_final2.png (rows populate after chip switch)",
+    "/tmp/pronostici_after_pick.png"
+  ],
+  "action_items": [
+    "HIGH: Fix logout infinite redirect loop. Options: (a) In session.logout(), call router.replace('/') and setMe(null) sequentially with expo-router's useRouter. (b) In index.tsx, guard the Redirect with pathname check (only redirect when at '/'). (c) In (tabs)/_layout, only render Redirect once and avoid rendering when in transition.",
+    "HIGH: Fix Board first-render 0-rows race. Add `useEffect(() => { load(); }, [load]);` in board.tsx alongside useFocusEffect so re-load happens on core update even when focused; OR refetch core inside board's load() before rendering.",
+    "MEDIUM: Consider flipping core.autoApprove to false in the shared Supabase table (or in seedIfNeeded write-through) if the intended UX is 'admin-approves-non-admins'. Currently all picks auto-approve because remote seed has autoApprove:true.",
+    "LOW: seedIfNeeded catches 'Failed to fetch' silently ('init err …' logged only). If the very first network fetch fails on boot, session.core remains null until a manual refresh — consider retrying or exposing an error banner."
+  ],
+  "critical_code_review_comments": [
+    "store.ts: Supabase `v` column stores JSON as TEXT string; kvGet was returning raw string causing 'c.players.some is not a function' at register. FIXED in this iteration with parseV() + JSON.stringify on write.",
+    "session.tsx register(): The auto-create-player branch (`c.players = [...c.players, {id, name}]; kvSet(K.core, c); setCore(c);`) does a read-modify-write on a shared KV row — susceptible to lost-update races if two users register concurrently. Consider using an RPC/upsert with server-side merging.",
+    "(tabs)/_layout.tsx: Redirect-on-null-me creates an infinite loop pairing with index.tsx's Redirect-on-truthy-me. Prefer imperative navigation in logout handler.",
+    "board.tsx useFocusEffect only inspects `load` in deps; if load's `core` closure gets stuck (e.g., load already ran with null core and never re-ran), rows stay empty. Add a plain useEffect that re-runs on core changes."
+  ],
+  "updated_files": [
+    "/app/frontend/src/lib/store.ts (kvGet + kvSet + kvList: JSON parse/stringify around Supabase text column)"
+  ],
+  "success_rate": {
+    "backend": "N/A (backend testing not requested — Supabase is the data plane)",
+    "frontend": "~65% — auth+register+redirect+hub+navigation+pronostici+pick all working; board first-render + logout broken"
+  },
+  "seed_data_creation": "Created several fresh users on shared Supabase table 'fantalist_kv' with usernames like qa1787687889985, qa1787688059440, qa1787688229009, qa1787688314362 (all password 'test1234'). Each auto-created a p-<username> player row in core.players. Also created a lms1/round-2/pick=inter approved record for qa1787688059440.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend is Supabase — the `v` column is TEXT so all writes/reads MUST go through JSON.stringify / JSON.parse (already applied in store.ts). Shared table already has admin=first-registered user and many demo players; new registrations will always be role='player'. Remote core has autoApprove=true and round=2 — picks always auto-approve. Two open bugs remain: (1) Board 0-rows on first visit (state race after register); (2) Maximum update depth on logout (Redirect ping-pong). Test with a unique username using Date.now() suffix to avoid collisions.",
+  "rca_of_issue": "Registration crash RCA: Supabase table `fantalist_kv` has column `v` of type TEXT (not JSONB). kvGet returned the raw JSON string; register() then called c.players.some(...) on a string → 'Cannot read properties of undefined (reading some)'. Fix: added parseV() (JSON.parse) in kvGet/kvList and JSON.stringify in kvSet for round-trip compatibility with shared HTML app data. Verified via curl that post-fix writes are readable and round-trip correctly (user record + updated core.players persisted with 23+ players). Logout crash RCA: expo-router's <Redirect> components in index.tsx (redirects if me) and (tabs)/_layout.tsx (redirects if !me) can enter a rapid re-render loop when `me` flips from truthy→null on a route that's still under /(tabs)/*. Mitigation: replace one of the Redirect components with an imperative router.replace inside session.logout() OR guard the Redirect with a pathname check."
+}

@@ -1,0 +1,175 @@
+{
+  "app_name": "FantaList Hub",
+  "personality": "7 Dark-First Utility",
+  "personality_one_liner": "A high-intensity, command-center sports interface blending fantasy football mechanics with a fast, betting-style operational UX.",
+  "color": {
+    "surface": "#121212",
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#1C1C1E",
+    "onSurfaceSecondary": "#A1A1AA",
+    "surfaceTertiary": "#27272A",
+    "onSurfaceTertiary": "#D4D4D8",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#000000",
+    "brand": "#FF5500",
+    "brandPrimary": "#FF5500",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#FF7A33",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#4D1A00",
+    "onBrandTertiary": "#FFB380",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#000000",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#A1A1AA",
+    "onInfo": "#FFFFFF",
+    "border": "#27272A",
+    "borderStrong": "#3F3F46",
+    "divider": "#27272A"
+  },
+  "typography": {
+    "displayFontFamily": "Barlow Condensed",
+    "textFontFamily": "Manrope",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Use tight structural spacing with functional dividers. Padding inside cards should be functional (sm/md), never excessively airy. Keep thumb zones clear for primary actions.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": [
+      "Use solid surfaceSecondary and surfaceTertiary to build depth rather than glass, optimizing for high data density and quick legibility."
+    ],
+    "dont's": [
+      "No blur-heavy sheets or transparent frosted cards.",
+      "No glass on leaderboards or bet slips to maintain maximum contrast."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "LandingGate",
+      "purpose": "High-impact public entry screen mixing marketing copy ('Dove Fantacalcio e Ludopatia si uniscono') with auth gate.",
+      "states": {
+        "loading": "Centered brand-colored activity indicator.",
+        "empty": "N/A",
+        "error": "Standard toast or inline text error below inputs."
+      },
+      "layout": "Full-bleed hero stadium background image (darkened with a gradient scrim top-to-bottom). Bottom 40% holds oversized Barlow Condensed typography, marketing subtext, and segmented 'Login / Register' form in a solid surfaceSecondary card pinned to the bottom."
+    },
+    {
+      "name": "DashboardHub",
+      "purpose": "Primary landing post-login containing minigame entry points and live round status.",
+      "states": {
+        "loading": "Skeleton stacked cards for minigames.",
+        "empty": "No active minigames - abstract football tactic illustration with 'Nuova Giornata in arrivo'.",
+        "error": "Retry fetching dashboard data."
+      },
+      "layout": "Sticky top header with user avatar and current Serie A round. Scrollable list of Minigame cards (Undici 1v1, Indovina il Calciatore, etc.) using surfaceSecondary. Each card displays an icon, title, and a 'status' badge (e.g., 'Da Giocare', 'In Corso'). At the bottom: a floating persistent 'Bet Slip' style minimized bar showing 'My Pronostici' summary (e.g., '3/4 Selections Made') that expands via Bottom Sheet."
+    },
+    {
+      "name": "MyPronostici",
+      "purpose": "The user's 'Bet Slip' showing selected teams/answers for the current round.",
+      "states": {
+        "loading": "List of skeleton rows.",
+        "empty": "Empty tactical board illustration - 'Non hai ancora fatto pronostici per questa giornata.'",
+        "error": "Retry fetching picks."
+      },
+      "layout": "Can be a standalone tab or expanded bottom sheet. High-density list. Each row represents a minigame pick. Left side: Minigame name in small caps. Right side: The selected Team/Player in brandPrimary colored text. A 'Place Picks / Confirm' sticky button at the bottom using brandPrimary."
+    },
+    {
+      "name": "LeaderboardBoard",
+      "purpose": "Tabular ranking of participants.",
+      "states": {
+        "loading": "Skeleton rows mimicking ranking.",
+        "empty": "No rankings yet.",
+        "error": "Retry fetching leaderboard."
+      },
+      "layout": "Horizontal segmented control at the top to filter by Minigame. Dense list layout. Rank number (Barlow Condensed), Participant Avatar (initials if no photo), Name, and Total Points. Emphasize top 3 with brandPrimary/brandTertiary subtle highlights. Elimination stamps (if applicable) overlay the avatar."
+    },
+    {
+      "name": "CalendarFixtures",
+      "purpose": "Serie A round-by-round fixture list.",
+      "states": {
+        "loading": "Skeleton fixture rows.",
+        "empty": "No fixtures available.",
+        "error": "Retry fetching calendar."
+      },
+      "layout": "Sticky week selector header. Dense vertical list of matches. Home Team vs Away Team with team logos (if available, else names). Result badges (W/L/D) in small chips next to the score."
+    },
+    {
+      "name": "AdminRequests",
+      "purpose": "Admin view to approve/reject user picks.",
+      "states": {
+        "loading": "Skeleton queue.",
+        "empty": "Illustration - 'Nessuna richiesta in sospeso.'",
+        "error": "Retry fetching requests."
+      },
+      "layout": "List of pending picks. Each card shows the user, minigame, and the pick. High-contrast action buttons: brandPrimary for 'Approve' and borderStrong outline for 'Reject'."
+    }
+  ],
+  "images": {
+    "landing_hero": {
+      "url": "https://images.unsplash.com/photo-1763854413165-1713bc5a7f4a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMHNvY2NlciUyMHN0YWRpdW0lMjBkYXJrfGVufDB8fHx8MTc4NzY4Njg0OHww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1763854413165-1713bc5a7f4a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMHNvY2NlciUyMHN0YWRpdW0lMjBkYXJrfGVufDB8fHx8MTc4NzY4Njg0OHww&ixlib=rb-4.1.0&q=85",
+      "alt": "A stadium filled with spectators during a night game"
+    },
+    "empty_tactical_board": {
+      "url": "https://images.unsplash.com/photo-1546608235-3310a2494cdf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxmb290YmFsbCUyMHBsYXllcnMlMjB0YWN0aWNhbCUyMGJvYXJkfGVufDB8fHx8MTc4NzY4Njg0NHww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1546608235-3310a2494cdf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxmb290YmFsbCUyMHBsYXllcnMlMjB0YWN0aWNhbCUyMGJvYXJkfGVufDB8fHx8MTc4NzY4Njg0NHww&ixlib=rb-4.1.0&q=85",
+      "alt": "Green sports tactical board illustration"
+    }
+  },
+  "haptics": {
+    "button_press": "light",
+    "tab_switch": "selection",
+    "minigame_select": "medium",
+    "bet_slip_expand": "light",
+    "confirm_pick": "success"
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark-First Utility guidelines. Pure black is avoided; use #121212 and #1C1C1E to create structural depth with #27272A dividers.",
+    "BANNED: Any shade of blue (including navy, sky blue), purple, or indigo. Stick entirely to the Signal Orange (#FF5500) brand color against dark greys.",
+    "The 'My Pronostici' feature must be designed as a persistent bottom floating element (like a bet slip) over the main Dashboard, expandable via a bottom sheet.",
+    "Typography: Use Barlow Condensed for all numeric data, scores, rankings, and major headings to give a fast, athletic, betting-board feel. Use Manrope for high legibility in body text.",
+    "All cards should be sharply squared or use very minimal radius (sm: 6px). Avoid playful, rounded UI.",
+    "Ensure 'LandingGate' utilizes the stadium background with a strong top-to-bottom gradient scrim (transparent to 80% surface opacity at bottom) so text remains readable.",
+    "No glassmorphism. This is a dense data / sports app. Rely on solid surfaceSecondary and thin 1px borders (#27272A) for separation."
+  ]
+}
