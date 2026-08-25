@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Risiko — Sala da Gioco</title>
+
+<style>
+/* RISIKO — CSS unificato */
+/* ============================================================
+   SALA DA GIOCO — design system condiviso
+   Palette: tavolo da gioco in feltro verde, intarsi in ottone,
+   pergamena per le carte, ceralacca rossa (Risiko) e blu (Monopoly)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+:root{
+  --felt-1:#0d2c1c;
+  --felt-2:#123a25;
+  --felt-3:#16452c;
+  --wood:#3a2415;
+  --wood-light:#5c3c22;
+  --wood-dark:#241407;
+  --parchment:#f2e8cc;
+  --parchment-dark:#e4d3a8;
+  --ink:#2a1f14;
+  --ink-soft:#5a4a34;
+  --gold:#c9a24b;
+  --gold-bright:#e8c877;
+  --red-wax:#a3392b;
+  --red-wax-bright:#c94b39;
+  --blue-bank:#2e5f8a;
+  --blue-bank-bright:#3f7fb5;
+  --cream:#ede3c8;
+  --cream-dim:#b9ad8f;
+  --danger:#c0392b;
+  --good:#3f9155;
+
+  --font-display:'Cinzel', serif;
+  --font-body:'Inter', system-ui, sans-serif;
+  --font-mono:'JetBrains Mono', monospace;
+
+  --radius-sm:6px;
+  --radius-md:12px;
+  --radius-lg:20px;
+  --shadow-deep:0 20px 50px -15px rgba(0,0,0,.6);
+  --shadow-soft:0 8px 24px -8px rgba(0,0,0,.45);
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family:var(--font-body);
+  color:var(--cream);
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(255,255,255,.05), transparent 45%),
+    radial-gradient(ellipse at 80% 110%, rgba(0,0,0,.35), transparent 55%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0 2px, transparent 2px 4px),
+    linear-gradient(160deg, var(--felt-2), var(--felt-1) 70%);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--gold); color:var(--ink); }
+
+a{ color:inherit; }
+button{ font-family:inherit; }
+
+h1,h2,h3,h4{ font-family:var(--font-display); letter-spacing:.02em; margin:0; }
+
+.mono{ font-family:var(--font-mono); }
+
+/* ---------- struttura pagina ---------- */
+.wood-frame{
+  border:3px solid var(--wood-light);
+  background:linear-gradient(160deg, var(--wood), var(--wood-dark));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), var(--shadow-deep);
+  border-radius:var(--radius-lg);
+}
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 26px;
+  background:linear-gradient(180deg, var(--wood-light), var(--wood));
+  border-bottom:3px solid var(--wood-dark);
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
+.topbar .brand{
+  font-family:var(--font-display);
+  font-weight:700;
+  letter-spacing:.08em;
+  font-size:1.15rem;
+  color:var(--gold-bright);
+  text-shadow:0 1px 0 rgba(0,0,0,.5);
+  text-decoration:none;
+  display:flex; align-items:center; gap:10px;
+}
+.topbar .brand .dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--red-wax-bright);
+  box-shadow:0 0 8px var(--red-wax-bright);
+}
+
+/* ---------- bottoni ---------- */
+.btn{
+  font-family:var(--font-display);
+  font-weight:600;
+  letter-spacing:.03em;
+  border:none;
+  cursor:pointer;
+  padding:11px 22px;
+  border-radius:var(--radius-sm);
+  font-size:.92rem;
+  transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  box-shadow:var(--shadow-soft);
+}
+.btn:hover{ transform:translateY(-2px); filter:brightness(1.08); }
+.btn:active{ transform:translateY(0); }
+.btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; filter:none; }
+
+.btn-gold{ background:linear-gradient(160deg, var(--gold-bright), var(--gold)); color:var(--ink); }
+.btn-red{ background:linear-gradient(160deg, var(--red-wax-bright), var(--red-wax)); color:#fff0ec; }
+.btn-blue{ background:linear-gradient(160deg, var(--blue-bank-bright), var(--blue-bank)); color:#eef6ff; }
+.btn-ghost{
+  background:rgba(255,255,255,.06); color:var(--cream);
+  border:1px solid rgba(255,255,255,.18);
+}
+.btn-ghost:hover{ background:rgba(255,255,255,.12); }
+.btn-sm{ padding:7px 14px; font-size:.8rem; }
+.btn-block{ width:100%; }
+
+/* ---------- carte / plance stile pergamena ---------- */
+.parchment{
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,255,255,.5), transparent 40%),
+    linear-gradient(160deg, var(--parchment), var(--parchment-dark));
+  color:var(--ink);
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-soft), inset 0 0 30px rgba(90,60,20,.15);
+  border:1px solid rgba(0,0,0,.15);
+}
+
+.plaque{
+  background:linear-gradient(160deg, #d9b45f, #a67c2e);
+  color:var(--ink);
+  border-radius:var(--radius-md);
+  padding:18px 20px;
+  box-shadow:var(--shadow-soft), inset 0 0 0 2px rgba(255,255,255,.25);
+  position:relative;
+}
+
+.wax-seal{
+  width:46px;height:46px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--red-wax-bright), var(--red-wax) 65%, #6d1f16);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display); font-weight:700; color:#ffe6df;
+  box-shadow:0 3px 8px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.15);
+  flex-shrink:0;
+}
+
+/* ---------- layout helpers ---------- */
+.container{ max-width:1180px; margin:0 auto; padding:0 24px; }
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+.flex{ display:flex; }
+.gap-8{gap:8px;} .gap-12{gap:12px;} .gap-16{gap:16px;} .gap-24{gap:24px;}
+.center{ align-items:center; justify-content:center; }
+.between{ justify-content:space-between; }
+.muted{ color:var(--cream-dim); }
+.text-sm{ font-size:.85rem; }
+.text-xs{ font-size:.74rem; }
+
+/* ---------- modale ---------- */
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(6,14,9,.72);
+  backdrop-filter:blur(3px);
+  display:flex; align-items:center; justify-content:center;
+  z-index:100; padding:20px;
+  animation:fadeIn .18s ease;
+}
+.modal{
+  width:100%; max-width:440px;
+  padding:28px;
+  animation:popIn .22s cubic-bezier(.2,.9,.3,1.2);
+}
+.modal h2{ font-size:1.3rem; margin-bottom:6px; }
+.modal .field{ margin:14px 0; }
+.modal label{ display:block; font-size:.78rem; font-weight:600; margin-bottom:6px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
+.modal input, .modal select{
+  width:100%; padding:11px 12px; border-radius:8px;
+  border:1px solid rgba(0,0,0,.25); background:#fffaf0; color:var(--ink);
+  font-family:var(--font-body); font-size:.95rem;
+}
+.modal .close-x{
+  position:absolute; top:14px; right:16px; cursor:pointer;
+  font-size:1.3rem; color:var(--ink-soft); background:none; border:none;
+}
+
+@keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+@keyframes popIn{ from{opacity:0; transform:scale(.92) translateY(10px)} to{opacity:1; transform:scale(1) translateY(0)} }
+@keyframes floaty{ 0%,100%{ transform:translateY(0) rotate(var(--r,0deg)); } 50%{ transform:translateY(-8px) rotate(var(--r,0deg)); } }
+@keyframes pulseGlow{ 0%,100%{ box-shadow:0 0 0 rgba(201,162,75,0)} 50%{ box-shadow:0 0 22px rgba(201,162,75,.55)} }
+@keyframes shimmer{ 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes slideUp{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:translateY(0);} }
+@keyframes rollDice{ 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+
+.toast-wrap{
+  position:fixed; bottom:20px; right:20px; z-index:200;
+  display:flex; flex-direction:column; gap:10px;
+}
+.toast{
+  background:var(--wood); color:var(--cream);
+  border-left:4px solid var(--gold);
+  padding:12px 16px; border-radius:8px; box-shadow:var(--shadow-soft);
+  animation:slideUp .25s ease; font-size:.87rem; max-width:320px;
+}
+
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-track{ background:rgba(0,0,0,.2); }
+::-webkit-scrollbar-thumb{ background:var(--wood-light); border-radius:6px; }
+
+
+
+  .hero{
+    padding:64px 24px 40px;
+    text-align:center;
+  }
+  .hero .eyebrow{
+    font-family:var(--font-mono); letter-spacing:.25em; font-size:.72rem;
+    color:var(--gold-bright); text-transform:uppercase;
+  }
+  .hero h1{
+    font-size:clamp(2.2rem, 5vw, 3.4rem);
+    color:var(--cream);
+    margin:10px 0 12px;
+    text-shadow:0 2px 0 rgba(0,0,0,.4);
+  }
+  .hero h1 span{ color:var(--gold-bright); }
+  .hero p{ color:var(--cream-dim); max-width:520px; margin:0 auto; }
+
+  .boxes{
+    display:grid; grid-template-columns:1fr 1fr; gap:34px;
+    max-width:900px; margin:44px auto 10px; padding:0 24px;
+  }
+  @media(max-width:640px){ .boxes{ grid-template-columns:1fr; } }
+
+  .game-box{
+    position:relative;
+    border-radius:var(--radius-lg);
+    padding:30px 26px 26px;
+    cursor:pointer;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:var(--shadow-deep);
+    transition:transform .28s cubic-bezier(.2,.9,.3,1.1), box-shadow .28s ease;
+    animation:floaty 6s ease-in-out infinite;
+  }
+  .game-box:nth-child(2){ animation-delay:.6s; --r:0deg; }
+  .game-box:hover{ transform:translateY(-10px) scale(1.02); box-shadow:0 30px 60px -15px rgba(0,0,0,.7); }
+  .game-box.risiko{ background:linear-gradient(160deg, #7a2418, #3c120c); }
+  .game-box.monopoly{ background:linear-gradient(160deg, #1c4a6b, #0d2536); }
+  .game-box .badge{
+    font-family:var(--font-mono); font-size:.68rem; letter-spacing:.15em;
+    color:rgba(255,255,255,.65); text-transform:uppercase;
+  }
+  .game-box h2{ font-size:1.7rem; color:#fff; margin:8px 0 10px; }
+  .game-box p{ color:rgba(255,255,255,.75); font-size:.88rem; margin:0 0 20px; min-height:40px; }
+  .game-box .icon{
+    position:absolute; right:-10px; bottom:-16px; font-size:6rem; opacity:.16;
+    filter:blur(.2px);
+  }
+  .game-box .actions{ display:flex; gap:10px; position:relative; z-index:2; }
+
+  .divider-row{
+    display:flex; align-items:center; gap:14px; max-width:1120px; margin:52px auto 24px; padding:0 24px;
+  }
+  .divider-row .line{ flex:1; height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); }
+  .divider-row span{ font-family:var(--font-display); letter-spacing:.08em; color:var(--gold-bright); font-size:.95rem; white-space:nowrap; }
+
+  .games-list{ max-width:1120px; margin:0 auto; padding:0 24px 80px; }
+  .tables-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; margin-top:18px; }
+
+  .table-card{
+    display:flex; gap:14px; padding:16px; align-items:center;
+  }
+  .table-card .info{ flex:1; min-width:0; }
+  .table-card .info h3{ font-size:1.02rem; margin-bottom:2px; }
+  .table-card .meta{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .pill{
+    font-size:.68rem; font-weight:700; padding:3px 9px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .pill-risiko{ background:rgba(163,57,43,.18); color:#e46b57; }
+  .pill-monopoly{ background:rgba(46,95,138,.18); color:#6aa8d8; }
+  .pill-lobby{ background:rgba(63,145,85,.18); color:#5fce80; }
+  .pill-playing{ background:rgba(201,162,75,.2); color:var(--gold-bright); }
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--cream-dim);
+    border:1px dashed rgba(255,255,255,.2); border-radius:var(--radius-md);
+  }
+
+  footer{ text-align:center; padding:30px; color:var(--cream-dim); font-size:.78rem; }
+
+
+.game-layout{
+  display:grid;
+  grid-template-columns:1fr 360px;
+  gap:20px;
+  padding:20px;
+  max-width:1500px;
+  margin:0 auto;
+  align-items:start;
+}
+@media(max-width:1000px){ .game-layout{ grid-template-columns:1fr; } }
+
+.map-panel{ padding:16px; position:relative; overflow:hidden; animation:slideUp .5s ease; }
+.map-header{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 10px 14px;
+}
+.turn-banner{
+  font-family:var(--font-display); font-weight:700; font-size:1.05rem; color:var(--gold-bright);
+}
+.phase-badge{
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.08em;
+  background:rgba(201,162,75,.15); color:var(--gold-bright);
+  padding:5px 12px; border-radius:20px; text-transform:uppercase;
+}
+.map-scroll{
+  background:radial-gradient(ellipse at 50% 30%, #163d29, #0c2115 80%);
+  border-radius:var(--radius-md);
+  overflow:auto;
+  box-shadow:inset 0 0 40px rgba(0,0,0,.5);
+  position:relative;
+}
+#mapSvg{ width:100%; min-width:760px; display:block; }
+
+/* ---------- terreno / continenti ---------- */
+.continent-blob{
+  transition:fill-opacity .3s ease, filter .3s ease;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));
+}
+.continent-blob.blob-highlight{ fill-opacity:.55 !important; }
+.continent-label{
+  font-family:var(--font-display); font-weight:700; letter-spacing:.12em;
+  text-anchor:middle; pointer-events:none; text-transform:uppercase;
+  opacity:.55;
+}
+
+.territory-node{ cursor:pointer; transition:transform .15s ease; transform-box:fill-box; transform-origin:center; }
+.territory-node:hover{ transform:scale(1.1); }
+.territory-circle{
+  stroke:rgba(0,0,0,.55); stroke-width:1.5;
+  transition:fill .35s ease, filter .15s ease, stroke .15s ease, stroke-width .15s ease, r .15s ease;
+}
+.territory-node:hover .territory-circle{ filter:brightness(1.28); }
+.territory-node:hover{ transform-origin:center; }
+.territory-node.selected .territory-circle{ stroke:var(--gold-bright); stroke-width:4; filter:drop-shadow(0 0 6px var(--gold-bright)); }
+.territory-node.selectable .territory-circle{ stroke:#fff; stroke-width:2; }
+.territory-node.selectable .ring{ opacity:1; }
+.territory-node.mine .territory-circle{ stroke:rgba(255,255,255,.55); }
+.territory-node.mine .flag{ opacity:1; }
+
+.ring{
+  fill:none; stroke:#fff; stroke-width:1.6; stroke-dasharray:4 4;
+  opacity:0; transition:opacity .2s ease;
+  animation:marchingAnts 1.4s linear infinite;
+  transform-origin:center;
+}
+@keyframes marchingAnts{ to{ stroke-dashoffset:-16; } }
+
+.territory-label{
+  font-family:var(--font-body); font-size:8.4px; fill:#f4ecd8; pointer-events:none;
+  text-anchor:middle; font-weight:600; paint-order:stroke; stroke:rgba(0,0,0,.75); stroke-width:2.2px;
+}
+.territory-armies{
+  font-family:var(--font-mono); font-weight:800; font-size:10.5px; fill:#1a1a1a; pointer-events:none; text-anchor:middle;
+}
+.armies-badge{ fill:#f2e8cc; stroke:rgba(0,0,0,.45); stroke-width:1; transition:r .15s ease; }
+.adj-line{ stroke:rgba(255,255,255,.16); stroke-width:1; }
+
+.territory-node.pulse .territory-circle{ animation:pulseGlow 1s ease-in-out infinite; }
+.territory-node.capital-turn .territory-circle{ animation:currentTurnGlow 1.6s ease-in-out infinite; }
+@keyframes currentTurnGlow{
+  0%,100%{ filter:drop-shadow(0 0 2px rgba(255,255,255,.2)); }
+  50%{ filter:drop-shadow(0 0 9px rgba(255,255,255,.65)); }
+}
+.conquest-flash{ animation:conquestFlash .7s ease; }
+@keyframes conquestFlash{
+  0%{ filter:brightness(3) saturate(1.6); }
+  100%{ filter:brightness(1); }
+}
+.territory-node.shake{ animation:shakeNode .35s ease; }
+@keyframes shakeNode{
+  0%,100%{ transform:translate(0,0); } 25%{ transform:translate(-2px,1px); }
+  50%{ transform:translate(2px,-1px); } 75%{ transform:translate(-1px,-1px); }
+}
+
+/* ---------- linee di possibile mossa (attacco/rinforzo) ---------- */
+.move-line{
+  fill:none; stroke:var(--gold-bright); stroke-width:2.4; stroke-linecap:round;
+  stroke-dasharray:7 6; opacity:.85;
+  animation:flowDash 1s linear infinite;
+  filter:drop-shadow(0 0 3px rgba(232,200,119,.5));
+}
+@keyframes flowDash{ to{ stroke-dashoffset:-26; } }
+.move-line.fortify-line{ stroke:var(--blue-bank-bright); filter:drop-shadow(0 0 3px rgba(63,127,181,.5)); }
+
+.army-floater{
+  font-family:var(--font-mono); font-weight:800; font-size:12px; fill:var(--gold-bright);
+  text-anchor:middle; pointer-events:none;
+  animation:floatUp 1s ease-out forwards;
+  paint-order:stroke; stroke:rgba(0,0,0,.6); stroke-width:2px;
+}
+@keyframes floatUp{
+  0%{ transform:translateY(0); opacity:0; }
+  15%{ opacity:1; }
+  100%{ transform:translateY(-26px); opacity:0; }
+}
+
+.clash-spark{
+  pointer-events:none;
+  animation:clashPop .55s ease-out forwards;
+}
+@keyframes clashPop{
+  0%{ transform:scale(.2); opacity:0; }
+  35%{ transform:scale(1.15); opacity:1; }
+  100%{ transform:scale(1.7); opacity:0; }
+}
+
+.map-legend{ display:flex; gap:14px; flex-wrap:wrap; padding:12px 10px 4px; }
+.legend-item{ display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--cream-dim); cursor:default; transition:color .15s ease; }
+.legend-item:hover{ color:var(--gold-bright); }
+.legend-swatch{ width:11px;height:11px;border-radius:3px; }
+.map-hint{
+  font-size:.72rem; color:var(--cream-dim); padding:0 10px 10px; text-align:center;
+  font-family:var(--font-mono); letter-spacing:.03em;
+}
+
+
+.side-panel{ display:flex; flex-direction:column; gap:16px; }
+.panel-block{ padding:18px 18px 16px; }
+.panel-block h3{ font-size:.95rem; margin-bottom:10px; color:var(--ink); border-bottom:2px solid rgba(0,0,0,.1); padding-bottom:8px; }
+
+.player-row{
+  display:flex; align-items:center; gap:10px; padding:8px 0;
+  border-bottom:1px solid rgba(0,0,0,.08);
+}
+.player-row:last-child{ border-bottom:none; }
+.player-dot{ width:14px;height:14px;border-radius:50%; flex-shrink:0; box-shadow:0 0 0 2px rgba(0,0,0,.15); }
+.player-row .pname{ font-weight:700; font-size:.86rem; }
+.player-row .pstats{ font-size:.72rem; color:var(--ink-soft); }
+.player-row.current-turn{ background:rgba(201,162,75,.18); border-radius:8px; padding-left:6px; }
+.player-row.eliminated{ opacity:.4; text-decoration:line-through; }
+
+.card-chip{
+  padding:8px 12px; border-radius:8px; background:#fffaf0; border:1px solid rgba(0,0,0,.15);
+  font-size:.8rem; display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+}
+.card-chip.selected{ background:var(--gold); border-color:var(--gold); }
+
+.mission-icon{ font-size:1.8rem; }
+.mission-progress-bar{ background:rgba(0,0,0,.12); border-radius:10px; height:10px; overflow:hidden; }
+.mission-progress-fill{ background:linear-gradient(90deg, var(--red-wax), var(--gold-bright)); height:100%; transition:width .4s ease; }
+.mission-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.mission-chip{
+  font-size:.72rem; padding:4px 9px; border-radius:14px; background:rgba(0,0,0,.08); color:var(--ink-soft);
+  font-weight:600;
+}
+.mission-chip.done{ background:rgba(63,145,85,.22); color:#2c7a45; }
+
+.history-list{ max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.history-item{ font-size:.78rem; line-height:1.4; padding-bottom:8px; border-bottom:1px dashed rgba(0,0,0,.12); animation:slideUp .25s ease; }
+.history-item .htime{ font-family:var(--font-mono); font-size:.65rem; color:var(--ink-soft); margin-right:6px; }
+
+.dice-row{ display:flex; gap:10px; justify-content:center; margin:16px 0; perspective:400px; }
+.die{
+  width:52px;height:52px; border-radius:10px; background:linear-gradient(160deg,#fff,#e6dcc2);
+  display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-weight:800; font-size:1.4rem;
+  box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 0 2px rgba(0,0,0,.08); color:var(--ink);
+  transition:transform .2s ease;
+}
+.die.rolling{ animation:rollDice3d .45s linear infinite; }
+@keyframes rollDice3d{
+  0%{ transform:rotateX(0) rotateY(0); }
+  50%{ transform:rotateX(180deg) rotateY(90deg); }
+  100%{ transform:rotateX(360deg) rotateY(180deg); }
+}
+.die.settled{ animation:diceSettle .35s ease; }
+@keyframes diceSettle{
+  0%{ transform:scale(1.3) rotate(-8deg); } 60%{ transform:scale(.94) rotate(3deg); } 100%{ transform:scale(1) rotate(0); }
+}
+.die.attacker{ border-bottom:4px solid var(--red-wax); }
+.die.defender{ border-bottom:4px solid var(--blue-bank); }
+.die.win{ box-shadow:0 0 0 3px var(--gold-bright), 0 6px 14px rgba(0,0,0,.35); }
+
+.stepper{ display:flex; align-items:center; gap:10px; justify-content:center; margin:14px 0; }
+.stepper button{ width:38px;height:38px;border-radius:50%; border:none; background:var(--gold); font-size:1.2rem; cursor:pointer; font-weight:700; }
+.stepper .val{ font-family:var(--font-mono); font-size:1.4rem; font-weight:700; min-width:50px; text-align:center; }
+
+.lobby-player-chip{
+  display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:20px;
+  background:rgba(0,0,0,.06); font-weight:600; font-size:.85rem;
+}
+
+/* ---------- banner turno animato ---------- */
+.turn-banner{ position:relative; overflow:visible; }
+.turn-banner.turn-changed{ animation:turnPop .5s cubic-bezier(.2,.9,.3,1.3); }
+@keyframes turnPop{
+  0%{ transform:scale(.85); opacity:.3; } 60%{ transform:scale(1.06); } 100%{ transform:scale(1); opacity:1; }
+}
+
+/* ---------- coriandoli vittoria ---------- */
+.confetti-piece{
+  position:absolute; top:-10px; width:8px; height:14px; opacity:.95;
+  animation:confettiFall linear forwards;
+  border-radius:2px;
+}
+@keyframes confettiFall{
+  to{ transform:translateY(620px) rotate(540deg); opacity:0; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="risiko.html" class="brand"><span class="dot"></span> SALA DA GIOCO</a>
+  <div class="flex gap-12" style="align-items:center;">
+    <div class="text-xs muted mono" id="connStatus"></div>
+    <div class="text-xs muted mono" id="gameCodeBadge">—</div>
+    <button class="btn btn-ghost btn-sm" id="inviteBtn">Copia invito</button>
+  </div>
+</div>
+
+<!-- ---------- SCHERMATA LOBBY (in attesa di giocatori) ---------- -->
+
+<div id="homeScreen" style="display:none;">
+  <section class="hero">
+    <div class="eyebrow">Feltro verde, dadi in mano, amici in linea</div>
+    <h1>Conquista il mondo a <span>Risiko</span></h1>
+    <p>Apri una partita, condividi il codice con gli amici e gioca in tempo reale — con missioni segrete e storico completo.</p>
+  </section>
+  <div class="boxes" style="grid-template-columns:1fr; max-width:460px;">
+    <div class="game-box risiko">
+      <div class="icon">⚔</div>
+      <div class="badge">Strategia · 2–6 giocatori</div>
+      <h2>Risiko</h2>
+      <p>Conquista i continenti, rinforza le armate, gioca le tris di carte territorio.</p>
+      <div class="actions">
+        <button class="btn btn-red" id="homeCreateBtn">Nuova partita</button>
+        <button class="btn btn-ghost" id="homeJoinBtn">Unisciti</button>
+      </div>
+    </div>
+  </div>
+  <div class="divider-row"><div class="line"></div><span>Tavoli aperti</span><div class="line"></div></div>
+  <div class="games-list">
+    <div class="flex between" style="align-items:center;">
+      <div class="text-sm muted">Partite Risiko in corso o in attesa, aggiornate in tempo reale.</div>
+      <button class="btn btn-ghost btn-sm" id="refreshBtn">↻ Aggiorna</button>
+    </div>
+    <div class="tables-grid" id="tablesGrid"><div class="empty-state">Caricamento tavoli…</div></div>
+  </div>
+  <footer>Preferisci Monopoly? <a href="monopoly.html">Vai al tavolo di Monopoly →</a></footer>
+</div>
+
+<div class="modal-backdrop" id="createModal" style="display:none;">
+  <div class="modal parchment">
+    <button class="close-x" id="createModalClose">&times;</button>
+    <h2>Nuova partita</h2>
+    <div class="text-sm" style="color:var(--ink-soft)">Configura il tavolo e invita i tuoi amici col codice.</div>
+    <div class="field"><label>Nome partita</label><input id="gameNameInput" placeholder="Es. Sfida del sabato sera" maxlength="40" /></div>
+    <div class="field"><label>Il tuo nome</label><input id="hostNameInput" placeholder="Es. Marco" maxlength="20" /></div>
+    <div class="field"><label>Il tuo colore</label><div id="colorPicker" class="flex gap-8" style="flex-wrap:wrap;"></div></div>
+    <button class="btn btn-gold btn-block" id="createConfirmBtn" style="margin-top:8px;">Crea tavolo →</button>
+  </div>
+</div>
+<div class="modal-backdrop" id="joinModal" style="display:none;">
+  <div class="modal parchment">
+    <button class="close-x" id="joinModalClose">&times;</button>
+    <h2>Unisciti a una partita</h2>
+    <div class="text-sm" style="color:var(--ink-soft)">Inserisci il codice a 5 caratteri condiviso dall'host.</div>
+    <div class="field"><label>Codice tavolo</label><input id="joinCodeInput" placeholder="ES. AB3XZ" maxlength="5" style="text-transform:uppercase; letter-spacing:.15em; font-family:var(--font-mono); font-weight:700;" /></div>
+    <div class="field"><label>Il tuo nome</label><input id="joinNameInput" placeholder="Es. Giulia" maxlength="20" /></div>
+    <div class="field"><label>Il tuo colore</label><div id="joinColorPicker" class="flex gap-8" style="flex-wrap:wrap;"></div></div>
+    <button class="btn btn-gold btn-block" id="joinConfirmBtn" style="margin-top:8px;">Entra al tavolo →</button>
+  </div>
+</div>
+
+<div id="lobbyScreen" class="container" style="padding-top:40px; display:none;">
+  <div class="parchment" style="padding:30px; max-width:640px; margin:0 auto;">
+    <h2 id="lobbyGameName">Tavolo Risiko</h2>
+    <p class="text-sm" style="color:var(--ink-soft)">In attesa che tutti i giocatori si uniscano. Condividi il codice qui sopra.</p>
+    <div id="lobbyPlayers" class="flex gap-12" style="flex-wrap:wrap; margin:18px 0;"></div>
+    <div id="lobbyControls"></div>
+  </div>
+</div>
+
+<!-- ---------- SCHERMATA DI GIOCO ---------- -->
+<div id="gameScreen" style="display:none;">
+  <div class="game-layout">
+
+    <div class="map-panel wood-frame">
+      <div class="map-header">
+        <div id="turnBanner" class="turn-banner">Caricamento…</div>
+        <div id="phaseBadge" class="phase-badge"></div>
+      </div>
+      <div class="map-scroll" id="mapScroll">
+        <svg id="mapSvg" viewBox="0 0 860 560" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="map-hint" id="mapHint">Clicca un territorio per iniziare</div>
+      <div class="map-legend" id="continentLegend"></div>
+    </div>
+
+    <div class="side-panel">
+      <div class="parchment panel-block" id="actionPanel">
+        <h3>Azioni</h3>
+        <div id="actionContent"></div>
+      </div>
+
+      <div class="parchment panel-block" id="missionPanel">
+        <h3>🎯 Il tuo obiettivo segreto</h3>
+        <div id="missionContent"></div>
+      </div>
+
+      <div class="parchment panel-block" id="playersPanel">
+        <h3>Giocatori</h3>
+        <div id="playersList"></div>
+      </div>
+
+      <div class="parchment panel-block" id="cardsPanel">
+        <h3>Le tue carte</h3>
+        <div id="cardsList" class="flex gap-8" style="flex-wrap:wrap;"></div>
+        <button class="btn btn-gold btn-sm" id="tradeCardsBtn" style="margin-top:10px; display:none;">Gioca tris</button>
+      </div>
+
+      <div class="parchment panel-block" id="historyPanel">
+        <h3>Storico partita</h3>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- modale attacco -->
+<div class="modal-backdrop" id="attackModal" style="display:none;">
+  <div class="modal parchment" style="max-width:480px;">
+    <button class="close-x" onclick="document.getElementById('attackModal').style.display='none'">&times;</button>
+    <h2>Battaglia</h2>
+    <div id="attackModalBody"></div>
+  </div>
+</div>
+
+<!-- modale generico numero -->
+<div class="modal-backdrop" id="numberModal" style="display:none;">
+  <div class="modal parchment" style="max-width:380px;">
+    <button class="close-x" onclick="document.getElementById('numberModal').style.display='none'">&times;</button>
+    <h2 id="numberModalTitle">Armate</h2>
+    <div id="numberModalBody"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ============================================================
+// CONFIGURAZIONE SUPABASE
+// Sostituisci questi due valori con quelli del TUO progetto Supabase:
+// Project Settings > API > Project URL / anon public key
+// ============================================================
+const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: { params: { eventsPerSecond: 10 } },
+});
+
+const isConfigured = () =>
+  !SUPABASE_URL.includes("YOUR-PROJECT-REF") &&
+  !SUPABASE_ANON_KEY.includes("YOUR-ANON-PUBLIC-KEY");
+
+// ---------- utilità comuni ----------
+function genCode(len = 5) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function genId() {
+  return crypto.randomUUID();
+}
+
+const PLAYER_COLORS = [
+  { name: "Rosso", hex: "#c0392b" },
+  { name: "Blu", hex: "#2d6cb0" },
+  { name: "Verde", hex: "#2f9e56" },
+  { name: "Giallo", hex: "#d4a017" },
+  { name: "Viola", hex: "#7d4bab" },
+  { name: "Arancio", hex: "#d3701e" },
+];
+
+// LocalStorage: mantiene l'identità del giocatore corrente per ciascuna partita
+function savePlayerSession(gameId, playerId, name) {
+  localStorage.setItem(`gh_session_${gameId}`, JSON.stringify({ playerId, name }));
+}
+function getPlayerSession(gameId) {
+  try {
+    return JSON.parse(localStorage.getItem(`gh_session_${gameId}`));
+  } catch {
+    return null;
+  }
+}
+
+async function logHistory(gameId, playerId, playerName, action, message, payload = null) {
+  await supabase.from("history").insert({
+    game_id: gameId,
+    player_id: playerId,
+    player_name: playerName,
+    action,
+    message,
+    payload,
+  });
+}
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+
+/* ============== SEZIONE ============== */
+
+
+// ============================================================
+// HOME / LOBBY (integrata: crea o entra in una partita di risiko)
+// ============================================================
+let chosenColor = PLAYER_COLORS[0].hex;
+let chosenColorJoin = PLAYER_COLORS[0].hex;
+
+function toast(msg){
+  const wrap = document.getElementById("toastWrap");
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 4200);
+}
+function escapeHtml(s){ return (s||"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function buildColorPicker(container, onPick, selected){
+  container.innerHTML = "";
+  PLAYER_COLORS.forEach(c=>{
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.title = c.name;
+    dot.style.cssText = `width:32px;height:32px;border-radius:50%;background:${c.hex};border:3px solid ${c.hex===selected? '#241a12':'transparent'};cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3);`;
+    dot.onclick = ()=>{ onPick(c.hex); buildColorPicker(container, onPick, c.hex); };
+    container.appendChild(dot);
+  });
+}
+
+function closeHomeModals(){
+  document.getElementById("createModal").style.display = "none";
+  document.getElementById("joinModal").style.display = "none";
+}
+
+function showHome(){
+  document.getElementById("homeScreen").style.display = "block";
+  document.getElementById("inviteBtn").style.display = "none";
+  document.getElementById("gameCodeBadge").style.display = "none";
+  buildColorPicker(document.getElementById("colorPicker"), (c)=>chosenColor=c, chosenColor);
+  buildColorPicker(document.getElementById("joinColorPicker"), (c)=>chosenColorJoin=c, chosenColorJoin);
+
+  if(!isConfigured()){
+    document.getElementById("connStatus").textContent = "⚠ Supabase non configurato";
+    document.getElementById("connStatus").style.color = "#e46b57";
+    toast("Configura le costanti SUPABASE_URL / SUPABASE_ANON_KEY in cima allo script di questa pagina.");
+  } else {
+    document.getElementById("connStatus").textContent = "● connesso";
+    document.getElementById("connStatus").style.color = "#5fce80";
+  }
+
+  document.getElementById("homeCreateBtn").onclick = ()=>{ document.getElementById("createModal").style.display="flex"; };
+  document.getElementById("homeJoinBtn").onclick = ()=>{ document.getElementById("joinModal").style.display="flex"; };
+  document.getElementById("createModalClose").onclick = closeHomeModals;
+  document.getElementById("joinModalClose").onclick = closeHomeModals;
+
+  document.getElementById("createConfirmBtn").onclick = async () => {
+    const name = document.getElementById("gameNameInput").value.trim() || "Partita senza nome";
+    const hostName = document.getElementById("hostNameInput").value.trim();
+    if(!hostName){ toast("Inserisci il tuo nome"); return; }
+    const btn = document.getElementById("createConfirmBtn");
+    btn.disabled = true; btn.textContent = "Creazione…";
+    try{
+      const code = genCode();
+      const { data: game, error } = await supabase.from("games").insert({
+        code, type: "risiko", name, status: "lobby", state: { phase:"lobby" }
+      }).select().single();
+      if(error) throw error;
+      const { data: player, error: perr } = await supabase.from("players").insert({
+        game_id: game.id, name: hostName, color: chosenColor, seat: 0, is_host: true
+      }).select().single();
+      if(perr) throw perr;
+      savePlayerSession(game.id, player.id, hostName);
+      await logHistory(game.id, player.id, hostName, "create_game", `${hostName} ha creato il tavolo "${name}"`);
+      location.href = `risiko.html?game=${game.id}`;
+    }catch(e){
+      console.error(e);
+      toast("Errore nella creazione: " + (e.message||e));
+      btn.disabled = false; btn.textContent = "Crea tavolo →";
+    }
+  };
+
+  document.getElementById("joinConfirmBtn").onclick = async () => {
+    const code = document.getElementById("joinCodeInput").value.trim().toUpperCase();
+    const name = document.getElementById("joinNameInput").value.trim();
+    if(!code || !name){ toast("Compila codice e nome"); return; }
+    const btn = document.getElementById("joinConfirmBtn");
+    btn.disabled = true; btn.textContent = "Ricerca tavolo…";
+    try{
+      const { data: game, error } = await supabase.from("games").select("*").eq("code", code).maybeSingle();
+      if(error) throw error;
+      if(!game){ toast("Nessun tavolo trovato con quel codice"); btn.disabled=false; btn.textContent="Entra al tavolo →"; return; }
+      if(game.type !== "risiko"){
+        toast(`Questo codice appartiene a un tavolo di ${game.type==='risiko'?'Risiko':'Monopoly'}. Apri ${game.type==='risiko'?'risiko.html':'monopoly.html'} per unirti.`);
+        btn.disabled=false; btn.textContent="Entra al tavolo →"; return;
+      }
+      const { data: existingPlayers } = await supabase.from("players").select("*").eq("game_id", game.id);
+      let player = (existingPlayers||[]).find(p=>p.name.toLowerCase() === name.toLowerCase());
+      if(!player){
+        if(game.status !== "lobby"){ toast("La partita è già iniziata: non puoi entrare come nuovo giocatore."); btn.disabled=false; btn.textContent="Entra al tavolo →"; return; }
+        if((existingPlayers||[]).length >= game.max_players){ toast("Tavolo pieno."); btn.disabled=false; btn.textContent="Entra al tavolo →"; return; }
+        const usedColors = new Set((existingPlayers||[]).map(p=>p.color));
+        let color = chosenColorJoin;
+        if(usedColors.has(color)){ const free = PLAYER_COLORS.find(c=>!usedColors.has(c.hex)); color = free ? free.hex : color; }
+        const seat = (existingPlayers||[]).length;
+        const { data: newPlayer, error: perr } = await supabase.from("players").insert({ game_id: game.id, name, color, seat, is_host:false }).select().single();
+        if(perr) throw perr;
+        player = newPlayer;
+        await logHistory(game.id, player.id, name, "join_game", `${name} si è seduto al tavolo`);
+      }
+      savePlayerSession(game.id, player.id, name);
+      location.href = `risiko.html?game=${game.id}`;
+    }catch(e){
+      console.error(e);
+      toast("Errore: " + (e.message||e));
+      btn.disabled = false; btn.textContent = "Entra al tavolo →";
+    }
+  };
+
+  loadTables();
+  if(isConfigured()){
+    supabase.channel("home-tables")
+      .on("postgres_changes", { event:"*", schema:"public", table:"games" }, loadTables)
+      .on("postgres_changes", { event:"*", schema:"public", table:"players" }, loadTables)
+      .subscribe();
+  }
+}
+
+async function loadTables(){
+  const grid = document.getElementById("tablesGrid");
+  grid.innerHTML = `<div class="empty-state">Caricamento tavoli…</div>`;
+  const { data: games, error } = await supabase
+    .from("games").select("*, players(id,name,color)")
+    .eq("type", "risiko").neq("status", "finished")
+    .order("created_at", { ascending:false }).limit(30);
+  if(error){ grid.innerHTML = `<div class="empty-state">Impossibile caricare i tavoli.<br><span class="text-xs">${error.message}</span></div>`; return; }
+  if(!games || !games.length){ grid.innerHTML = `<div class="empty-state">Nessun tavolo aperto al momento.<br>Crea la prima partita! 🎲</div>`; return; }
+  grid.innerHTML = "";
+  games.forEach(g=>{
+    const card = document.createElement("div");
+    card.className = "table-card parchment";
+    card.style.cursor = "pointer";
+    const players = g.players || [];
+    card.innerHTML = `
+      <div class="wax-seal">${g.code.slice(0,2)}</div>
+      <div class="info">
+        <h3>${escapeHtml(g.name)}</h3>
+        <div class="text-xs" style="color:var(--ink-soft)">${players.map(p=>p.name).join(", ") || "nessun giocatore"}</div>
+        <div class="meta">
+          <span class="pill ${g.status==='lobby'?'pill-lobby':'pill-playing'}">${g.status==='lobby'?'In attesa':'In corso'}</span>
+          <span class="pill" style="background:rgba(0,0,0,.08); color:var(--ink-soft);">${players.length}/${g.max_players} giocatori</span>
+        </div>
+      </div>
+    `;
+    card.onclick = () => location.href = `risiko.html?game=${g.id}`;
+    grid.appendChild(card);
+  });
+}
+document.getElementById("refreshBtn")?.addEventListener("click", loadTables);
+
+
+/* ============== SEZIONE ============== */
+
+// ============================================================
+// DATI DI GIOCO — RISIKO
+// Mappa schematica a 42 territori / 6 continenti, regole standard.
+// ============================================================
+
+const CONTINENTS = {
+  nordamerica: { name: "Nord America", bonus: 5, color: "#c9704a" },
+  sudamerica:  { name: "Sud America",  bonus: 2, color: "#c9a24b" },
+  europa:      { name: "Europa",       bonus: 5, color: "#5f8fc9" },
+  africa:      { name: "Africa",       bonus: 3, color: "#caa24b" },
+  asia:        { name: "Asia",         bonus: 7, color: "#6fae6f" },
+  oceania:     { name: "Oceania",      bonus: 2, color: "#b06fc9" },
+};
+
+// id, nome, continente, coordinate SVG (viewBox 0 0 860 560)
+const TERRITORIES = [
+  // ---- Nord America ----
+  { id:"alaska", name:"Alaska", cont:"nordamerica", x:55, y:55 },
+  { id:"territori_nordovest", name:"Territori del Nordovest", cont:"nordamerica", x:150, y:50 },
+  { id:"groenlandia", name:"Groenlandia", cont:"nordamerica", x:290, y:35 },
+  { id:"alberta", name:"Alberta", cont:"nordamerica", x:110, y:125 },
+  { id:"ontario", name:"Ontario", cont:"nordamerica", x:195, y:120 },
+  { id:"quebec", name:"Quebec", cont:"nordamerica", x:275, y:130 },
+  { id:"usa_ovest", name:"Stati Uniti Occ.", cont:"nordamerica", x:115, y:205 },
+  { id:"usa_est", name:"Stati Uniti Or.", cont:"nordamerica", x:215, y:205 },
+  { id:"america_centrale", name:"America Centrale", cont:"nordamerica", x:150, y:275 },
+  // ---- Sud America ----
+  { id:"venezuela", name:"Venezuela", cont:"sudamerica", x:205, y:335 },
+  { id:"brasile", name:"Brasile", cont:"sudamerica", x:265, y:405 },
+  { id:"peru", name:"Perù", cont:"sudamerica", x:190, y:425 },
+  { id:"argentina", name:"Argentina", cont:"sudamerica", x:210, y:505 },
+  // ---- Europa ----
+  { id:"islanda", name:"Islanda", cont:"europa", x:335, y:60 },
+  { id:"gran_bretagna", name:"Gran Bretagna", cont:"europa", x:335, y:145 },
+  { id:"scandinavia", name:"Scandinavia", cont:"europa", x:415, y:50 },
+  { id:"ucraina", name:"Ucraina", cont:"europa", x:480, y:120 },
+  { id:"europa_nord", name:"Europa del Nord", cont:"europa", x:405, y:145 },
+  { id:"europa_ovest", name:"Europa Occ.", cont:"europa", x:335, y:215 },
+  { id:"europa_sud", name:"Europa del Sud", cont:"europa", x:405, y:215 },
+  // ---- Africa ----
+  { id:"africa_nord", name:"Africa del Nord", cont:"africa", x:355, y:305 },
+  { id:"egitto", name:"Egitto", cont:"africa", x:425, y:295 },
+  { id:"africa_est", name:"Africa Orientale", cont:"africa", x:465, y:365 },
+  { id:"congo", name:"Congo", cont:"africa", x:405, y:405 },
+  { id:"africa_sud", name:"Africa del Sud", cont:"africa", x:415, y:475 },
+  { id:"madagascar", name:"Madagascar", cont:"africa", x:485, y:465 },
+  // ---- Asia ----
+  { id:"ural", name:"Ural", cont:"asia", x:540, y:95 },
+  { id:"siberia", name:"Siberia", cont:"asia", x:610, y:60 },
+  { id:"jakutsk", name:"Jakutsk", cont:"asia", x:680, y:40 },
+  { id:"kamchatka", name:"Kamchatka", cont:"asia", x:775, y:50 },
+  { id:"irkutsk", name:"Irkutsk", cont:"asia", x:670, y:115 },
+  { id:"mongolia", name:"Mongolia", cont:"asia", x:710, y:145 },
+  { id:"giappone", name:"Giappone", cont:"asia", x:800, y:145 },
+  { id:"afghanistan", name:"Afghanistan", cont:"asia", x:525, y:175 },
+  { id:"cina", name:"Cina", cont:"asia", x:620, y:195 },
+  { id:"medio_oriente", name:"Medio Oriente", cont:"asia", x:505, y:245 },
+  { id:"india", name:"India", cont:"asia", x:590, y:265 },
+  { id:"siam", name:"Siam", cont:"asia", x:650, y:265 },
+  // ---- Oceania ----
+  { id:"indonesia", name:"Indonesia", cont:"oceania", x:660, y:335 },
+  { id:"nuova_guinea", name:"Nuova Guinea", cont:"oceania", x:745, y:325 },
+  { id:"australia_ovest", name:"Australia Occ.", cont:"oceania", x:690, y:405 },
+  { id:"australia_est", name:"Australia Or.", cont:"oceania", x:760, y:405 },
+];
+
+const TERRITORY_MAP = Object.fromEntries(TERRITORIES.map(t=>[t.id, t]));
+
+const RAW_ADJ = {
+  alaska: ["territori_nordovest","alberta","kamchatka"],
+  territori_nordovest: ["alaska","alberta","ontario","groenlandia"],
+  groenlandia: ["territori_nordovest","ontario","quebec","islanda"],
+  alberta: ["alaska","territori_nordovest","ontario","usa_ovest"],
+  ontario: ["alberta","territori_nordovest","groenlandia","quebec","usa_est","usa_ovest"],
+  quebec: ["ontario","groenlandia","usa_est"],
+  usa_ovest: ["alberta","ontario","usa_est","america_centrale"],
+  usa_est: ["usa_ovest","ontario","quebec","america_centrale"],
+  america_centrale: ["usa_ovest","usa_est","venezuela"],
+
+  venezuela: ["america_centrale","brasile","peru"],
+  brasile: ["venezuela","peru","argentina","africa_nord"],
+  peru: ["venezuela","brasile","argentina"],
+  argentina: ["peru","brasile"],
+
+  islanda: ["groenlandia","gran_bretagna","scandinavia"],
+  gran_bretagna: ["islanda","scandinavia","europa_nord","europa_ovest"],
+  scandinavia: ["islanda","gran_bretagna","europa_nord","ucraina"],
+  ucraina: ["scandinavia","europa_nord","europa_sud","ural","afghanistan","medio_oriente"],
+  europa_nord: ["gran_bretagna","scandinavia","ucraina","europa_sud","europa_ovest"],
+  europa_ovest: ["gran_bretagna","europa_nord","europa_sud","africa_nord"],
+  europa_sud: ["europa_nord","ucraina","europa_ovest","africa_nord","egitto","medio_oriente"],
+
+  africa_nord: ["brasile","europa_ovest","europa_sud","egitto","africa_est","congo"],
+  egitto: ["europa_sud","africa_nord","africa_est","medio_oriente"],
+  africa_est: ["egitto","africa_nord","congo","africa_sud","madagascar","medio_oriente"],
+  congo: ["africa_nord","africa_est","africa_sud"],
+  africa_sud: ["congo","africa_est","madagascar"],
+  madagascar: ["africa_est","africa_sud"],
+
+  ural: ["ucraina","siberia","cina","afghanistan"],
+  siberia: ["ural","jakutsk","irkutsk","mongolia","cina"],
+  jakutsk: ["siberia","kamchatka","irkutsk"],
+  kamchatka: ["jakutsk","irkutsk","mongolia","giappone","alaska"],
+  irkutsk: ["siberia","jakutsk","kamchatka","mongolia"],
+  mongolia: ["siberia","irkutsk","kamchatka","giappone","cina"],
+  giappone: ["kamchatka","mongolia"],
+  afghanistan: ["ural","cina","india","medio_oriente","ucraina"],
+  cina: ["ural","siberia","mongolia","afghanistan","india","siam"],
+  medio_oriente: ["ucraina","europa_sud","egitto","africa_est","afghanistan","india"],
+  india: ["afghanistan","cina","medio_oriente","siam"],
+  siam: ["cina","india","indonesia"],
+
+  indonesia: ["siam","nuova_guinea","australia_ovest"],
+  nuova_guinea: ["indonesia","australia_ovest","australia_est"],
+  australia_ovest: ["indonesia","nuova_guinea","australia_est"],
+  australia_est: ["nuova_guinea","australia_ovest"],
+};
+
+// chiusura simmetrica dell'adiacenza
+const ADJACENCY = {};
+for(const t of TERRITORIES) ADJACENCY[t.id] = new Set(RAW_ADJ[t.id]||[]);
+for(const [a, list] of Object.entries(RAW_ADJ)){
+  for(const b of list){ ADJACENCY[b] = ADJACENCY[b]||new Set(); ADJACENCY[b].add(a); }
+}
+function areAdjacent(a,b){ return ADJACENCY[a] && ADJACENCY[a].has(b); }
+
+// mazzo carte territorio: simboli fanteria/cavalleria/artiglieria + 2 jolly
+const SYMBOLS = ["fanteria","cavalleria","artiglieria"];
+function buildDeck(){
+  const deck = TERRITORIES.map((t,i)=>({ territory:t.id, symbol: SYMBOLS[i % 3] }));
+  deck.push({ territory:null, symbol:"jolly" });
+  deck.push({ territory:null, symbol:"jolly" });
+  return deck;
+}
+
+// bonus armate per tris di carte giocate (progressione standard)
+function cardSetBonus(setNumber){
+  const table = [4,6,8,10,12,15];
+  if(setNumber <= table.length) return table[setNumber-1];
+  return 15 + (setNumber - table.length) * 5;
+}
+
+function isValidCardSet(cards){
+  if(cards.length !== 3) return false;
+  const symbols = cards.map(c=>c.symbol);
+  const wild = symbols.filter(s=>s==="jolly").length;
+  const real = symbols.filter(s=>s!=="jolly");
+  const uniqueReal = new Set(real);
+  if(real.length + wild < 3) return false;
+  if(uniqueReal.size <= 1) return true; // tutte uguali (+ eventuali jolly)
+  if(uniqueReal.size === real.length && real.length + wild === 3) return true; // tutte diverse
+  return false;
+}
+
+const SYMBOL_ICON = { fanteria:"🪖", cavalleria:"🐎", artiglieria:"💣", jolly:"⭐" };
+
+// ============================================================
+// OBIETTIVI SEGRETI (missioni) — variante classica italiana
+// ============================================================
+// Le missioni "a continenti fissi" sono uguali per tutte le partite;
+// le missioni "distruggi il giocatore X" e le due "24 territori" completano
+// il mazzo in base al numero di giocatori seduti al tavolo.
+const FIXED_MISSIONS = [
+  { id:"m_na_af", type:"continents", continents:["nordamerica","africa"], text:"Conquistare i territori del Nord America e dell'Africa." },
+  { id:"m_as_sa", type:"continents", continents:["asia","sudamerica"], text:"Conquistare i territori dell'Asia e del Sud America." },
+  { id:"m_as_af", type:"continents", continents:["asia","africa"], text:"Conquistare i territori dell'Asia e dell'Africa." },
+  { id:"m_na_oc", type:"continents", continents:["nordamerica","oceania"], text:"Conquistare i territori del Nord America e dell'Oceania." },
+  { id:"m_eu_oc_x", type:"continents_plus_one", continents:["europa","oceania"], text:"Conquistare i territori dell'Europa, dell'Oceania e di un terzo continente a scelta." },
+  { id:"m_eu_sa_x", type:"continents_plus_one", continents:["europa","sudamerica"], text:"Conquistare i territori dell'Europa, del Sud America e di un terzo continente a scelta." },
+  { id:"m_24a", type:"territories", count:24, text:"Conquistare 24 territori a scelta, occupando ciascuno con almeno 1 armata." },
+  { id:"m_24b", type:"territories", count:24, text:"Conquistare 24 territori a scelta, occupando ciascuno con almeno 1 armata." },
+];
+
+function buildMissionPool(players){
+  const destroyMissions = players.map(p=>({
+    id:"destroy_"+p.id, type:"destroy", targetId:p.id,
+    text:`Distruggere completamente le armate del giocatore di colore ${p.name}. (Se qualcun altro lo elimina per primo, il tuo obiettivo diventa conquistare 24 territori.)`
+  }));
+  return [...FIXED_MISSIONS.map(m=>({...m})), ...destroyMissions];
+}
+
+function assignMissions(players){
+  const pool = buildMissionPool(players).sort(()=>Math.random()-0.5);
+  const assigned = {};
+  players.forEach(p=>{
+    let idx = pool.findIndex(m=> !(m.type==="destroy" && m.targetId===p.id));
+    if(idx === -1) idx = 0;
+    const mission = pool.splice(idx,1)[0];
+    assigned[p.id] = mission;
+  });
+  return assigned;
+}
+
+const MISSION_ICON = { continents:"🌍", continents_plus_one:"🗺️", territories:"🚩", destroy:"⚔️" };
+
+
+/* ============== SEZIONE ============== */
+
+
+const params = new URLSearchParams(location.search);
+const gameId = params.get("game");
+
+
+let game = null;       // riga games
+let players = [];      // righe players
+let me = getPlayerSession(gameId); // {playerId, name}
+let selection = { mode:null, from:null, to:null };
+let lastHistoryIds = new Set();
+let prevArmies = {};       // per animare i floater "+N"
+let prevOwners = {};       // per rilevare conquiste
+let prevCurrentIndex = null;
+let prevPhase = null;
+let confettiFired = false;
+
+const $ = (id)=>document.getElementById(id);
+
+document.getElementById("inviteBtn").onclick = () => {
+  navigator.clipboard?.writeText(location.href);
+  toast("Link copiato negli appunti!");
+};
+
+// ============================================================
+// CARICAMENTO INIZIALE
+// ============================================================
+async function boot(){
+  const { data: g, error } = await supabase.from("games").select("*").eq("id", gameId).single();
+  if(error || !g){ toast("Partita non trovata"); return; }
+  game = g;
+  $("gameCodeBadge").textContent = "Codice: " + g.code;
+
+  const { data: pls } = await supabase.from("players").select("*").eq("game_id", gameId).order("seat");
+  players = pls || [];
+
+  if(!me){
+    // arrivato via link diretto senza passare dalla lobby: chiedi nome
+    const name = prompt("Inserisci il tuo nome per unirti al tavolo Risiko:");
+    if(!name){ toast("Nome richiesto"); return; }
+    const usedColors = new Set(players.map(p=>p.color));
+    const free = PLAYER_COLORS.find(c=>!usedColors.has(c.hex)) || PLAYER_COLORS[0];
+    if(game.status !== "lobby"){
+      toast("La partita è già iniziata."); return;
+    }
+    const { data: newPlayer } = await supabase.from("players").insert({
+      game_id: gameId, name, color: free.hex, seat: players.length, is_host: players.length===0
+    }).select().single();
+    me = { playerId: newPlayer.id, name };
+    savePlayerSession(gameId, newPlayer.id, name);
+    players.push(newPlayer);
+    await logHistory(gameId, newPlayer.id, name, "join_game", `${name} si è seduto al tavolo`);
+  }
+
+  await loadHistory();
+  render();
+  subscribe();
+}
+
+async function loadHistory(){
+  const { data } = await supabase.from("history").select("*").eq("game_id", gameId).order("created_at",{ascending:true}).limit(200);
+  (data||[]).forEach(h=>lastHistoryIds.add(h.id));
+  renderHistory(data||[]);
+}
+
+function subscribe(){
+  supabase.channel("risiko-"+gameId)
+    .on("postgres_changes", { event:"UPDATE", schema:"public", table:"games", filter:`id=eq.${gameId}` }, (payload)=>{
+      game = payload.new; render();
+    })
+    .on("postgres_changes", { event:"*", schema:"public", table:"players", filter:`game_id=eq.${gameId}` }, async ()=>{
+      const { data } = await supabase.from("players").select("*").eq("game_id", gameId).order("seat");
+      players = data || []; render();
+    })
+    .on("postgres_changes", { event:"INSERT", schema:"public", table:"history", filter:`game_id=eq.${gameId}` }, (payload)=>{
+      if(lastHistoryIds.has(payload.new.id)) return;
+      lastHistoryIds.add(payload.new.id);
+      appendHistoryItem(payload.new);
+    })
+    .subscribe();
+}
+
+async function saveState(newState, extra={}){
+  game.state = newState;
+  const { error } = await supabase.from("games").update({ state:newState, ...extra }).eq("id", gameId);
+  if(error){ console.error(error); toast("Errore di sincronizzazione: "+error.message); }
+  render();
+}
+
+// ============================================================
+// RENDER — dispatcher principale
+// ============================================================
+function render(){
+  if(!game) return;
+  if(game.status === "lobby"){
+    $("lobbyScreen").style.display = "block";
+    $("gameScreen").style.display = "none";
+    renderLobby();
+  } else {
+    $("lobbyScreen").style.display = "none";
+    $("gameScreen").style.display = "block";
+    if(!document.querySelector("#mapSvg circle")) buildMapSvg();
+    renderMap();
+    renderPlayers();
+    renderCards();
+    renderMission();
+    renderActionPanel();
+    renderTurnBanner();
+  }
+}
+
+// ============================================================
+// LOBBY
+// ============================================================
+function renderLobby(){
+  $("lobbyGameName").textContent = game.name;
+  const wrap = $("lobbyPlayers");
+  wrap.innerHTML = "";
+  players.forEach(p=>{
+    const chip = document.createElement("div");
+    chip.className = "lobby-player-chip";
+    chip.innerHTML = `<span style="width:12px;height:12px;border-radius:50%;background:${p.color};display:inline-block;"></span> ${escapeHtml(p.name)} ${p.is_host?'👑':''}`;
+    wrap.appendChild(chip);
+  });
+  const iAmHost = players.find(p=>p.id===me.playerId)?.is_host;
+  const controls = $("lobbyControls");
+  if(iAmHost){
+    controls.innerHTML = "";
+    const btn = document.createElement("button");
+    btn.className = "btn btn-red btn-block";
+    btn.textContent = players.length < 2 ? "Servono almeno 2 giocatori" : `Avvia partita (${players.length} giocatori) →`;
+    btn.disabled = players.length < 2;
+    btn.onclick = startGame;
+    controls.appendChild(btn);
+  } else {
+    controls.innerHTML = `<div class="text-sm" style="color:var(--ink-soft)">In attesa che l'host avvii la partita…</div>`;
+  }
+}
+
+async function startGame(){
+  const n = players.length;
+  const armiesTable = {2:40,3:35,4:30,5:25,6:20};
+  const startArmies = armiesTable[Math.min(n,6)] || 20;
+
+  // distribuzione casuale territori
+  const shuffled = [...TERRITORIES].sort(()=>Math.random()-0.5);
+  const territories = {};
+  shuffled.forEach((t,i)=>{
+    const owner = players[i % n].id;
+    territories[t.id] = { owner, armies: 1 };
+  });
+  const armiesLeft = {};
+  players.forEach(p=>{
+    const owned = Object.values(territories).filter(t=>t.owner===p.id).length;
+    armiesLeft[p.id] = startArmies - owned;
+  });
+
+  const order = players.map(p=>p.id).sort(()=>Math.random()-0.5);
+  const deck = buildDeck().sort(()=>Math.random()-0.5);
+  const missions = assignMissions(players);
+
+  const state = {
+    phase: "setup_placement",
+    order,
+    currentPlayerIndex: 0,
+    territories,
+    armiesLeftSetup: armiesLeft,
+    reinforcementsRemaining: armiesLeft[order[0]],
+    deck,
+    discard: [],
+    hands: Object.fromEntries(players.map(p=>[p.id, []])),
+    setsPlayed: 0,
+    conqueredThisTurn: false,
+    fortifyUsed: false,
+    eliminated: [],
+    eliminatedBy: {},
+    missions,
+    winner: null,
+    winReason: null,
+    pendingCardAward: false,
+  };
+  await supabase.from("games").update({ state, status:"playing" }).eq("id", gameId);
+  await logHistory(gameId, me.playerId, me.name, "start_game", `La partita è iniziata! Ordine di turno definito e territori assegnati.`);
+  game.status = "playing"; game.state = state;
+  render();
+}
+
+// ============================================================
+// GEOMETRIA — sagome dei continenti (convex hull "gonfiato" e arrotondato)
+// ============================================================
+function convexHull(points){
+  const pts = [...points].sort((a,b)=> a.x-b.x || a.y-b.y);
+  if(pts.length < 3) return pts;
+  const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lower=[];
+  for(const p of pts){
+    while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
+    lower.push(p);
+  }
+  const upper=[];
+  for(let i=pts.length-1;i>=0;i--){
+    const p=pts[i];
+    while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
+    upper.push(p);
+  }
+  upper.pop(); lower.pop();
+  const hull = lower.concat(upper);
+  return hull.length >= 3 ? hull : pts;
+}
+function inflatePoints(hull, margin){
+  const cx = hull.reduce((s,p)=>s+p.x,0)/hull.length;
+  const cy = hull.reduce((s,p)=>s+p.y,0)/hull.length;
+  return hull.map(p=>{
+    const dx=p.x-cx, dy=p.y-cy;
+    const len=Math.hypot(dx,dy)||1;
+    return { x:p.x+dx/len*margin, y:p.y+dy/len*margin };
+  });
+}
+function smoothBlobPath(points){
+  if(points.length<3) return "";
+  const mid=(a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
+  let d = "";
+  const start = mid(points[points.length-1], points[0]);
+  d += `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} `;
+  for(let i=0;i<points.length;i++){
+    const p = points[i];
+    const next = points[(i+1)%points.length];
+    const m = mid(p,next);
+    d += `Q ${p.x.toFixed(1)} ${p.y.toFixed(1)} ${m.x.toFixed(1)} ${m.y.toFixed(1)} `;
+  }
+  d += "Z";
+  return d;
+}
+function continentBlobPath(contId){
+  const pts = TERRITORIES.filter(t=>t.cont===contId).map(t=>({x:t.x,y:t.y}));
+  if(pts.length < 3){
+    const cx = pts.reduce((s,p)=>s+p.x,0)/pts.length, cy = pts.reduce((s,p)=>s+p.y,0)/pts.length;
+    return `M ${cx-40} ${cy-30} Q ${cx} ${cy-60} ${cx+40} ${cy-30} Q ${cx+55} ${cy} ${cx+40} ${cy+30} Q ${cx} ${cy+60} ${cx-40} ${cy+30} Q ${cx-55} ${cy} ${cx-40} ${cy-30} Z`;
+  }
+  const hull = convexHull(pts);
+  const inflated = inflatePoints(hull, 36);
+  return smoothBlobPath(inflated);
+}
+function centroidOf(contId){
+  const pts = TERRITORIES.filter(t=>t.cont===contId);
+  return { x: pts.reduce((s,p)=>s+p.x,0)/pts.length, y: Math.min(...pts.map(p=>p.y)) - 30 };
+}
+
+// ============================================================
+// MAPPA SVG
+// ============================================================
+function buildMapSvg(){
+  const svg = $("mapSvg");
+  svg.innerHTML = "";
+  const NS = "http://www.w3.org/2000/svg";
+
+  // ---------- defs: texture terreno + marker frecce ----------
+  const defs = document.createElementNS(NS,"defs");
+  defs.innerHTML = `
+    <filter id="terrainNoise" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+    <marker id="arrowGold" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="var(--gold-bright)"/>
+    </marker>
+  `;
+  svg.appendChild(defs);
+
+  // ---------- sagome continenti ----------
+  const blobLayer = document.createElementNS(NS,"g");
+  blobLayer.setAttribute("id","continentBlobs");
+  Object.entries(CONTINENTS).forEach(([id,c])=>{
+    const path = document.createElementNS(NS,"path");
+    path.setAttribute("d", continentBlobPath(id));
+    path.setAttribute("class","continent-blob");
+    path.setAttribute("data-cont", id);
+    path.setAttribute("fill", c.color);
+    path.setAttribute("fill-opacity","0.16");
+    path.setAttribute("stroke", c.color);
+    path.setAttribute("stroke-opacity","0.55");
+    path.setAttribute("stroke-width","1.5");
+    blobLayer.appendChild(path);
+
+    const centroid = centroidOf(id);
+    const label = document.createElementNS(NS,"text");
+    label.setAttribute("class","continent-label");
+    label.setAttribute("x", centroid.x);
+    label.setAttribute("y", centroid.y);
+    label.setAttribute("fill", c.color);
+    label.setAttribute("font-size","13");
+    label.textContent = c.name;
+    blobLayer.appendChild(label);
+  });
+  svg.appendChild(blobLayer);
+
+  // ---------- linee di adiacenza ----------
+  const lineLayer = document.createElementNS(NS,"g");
+  lineLayer.setAttribute("id","adjLines");
+  const drawn = new Set();
+  for(const [id, set] of Object.entries(ADJACENCY)){
+    const a = TERRITORY_MAP[id];
+    set.forEach(otherId=>{
+      const key = [id,otherId].sort().join("|");
+      if(drawn.has(key)) return; drawn.add(key);
+      const b = TERRITORY_MAP[otherId];
+      const l = document.createElementNS(NS,"line");
+      l.setAttribute("x1",a.x); l.setAttribute("y1",a.y); l.setAttribute("x2",b.x); l.setAttribute("y2",b.y);
+      l.setAttribute("class","adj-line");
+      lineLayer.appendChild(l);
+    });
+  }
+  svg.appendChild(lineLayer);
+
+  // ---------- overlay mosse possibili (disegnato dinamicamente) ----------
+  const moveLayer = document.createElementNS(NS,"g");
+  moveLayer.setAttribute("id","moveOverlay");
+  svg.appendChild(moveLayer);
+
+  // ---------- nodi territorio ----------
+  const nodeLayer = document.createElementNS(NS,"g");
+  nodeLayer.setAttribute("id","nodeLayer");
+  TERRITORIES.forEach(t=>{
+    const g = document.createElementNS(NS,"g");
+    g.setAttribute("class","territory-node");
+    g.setAttribute("data-id", t.id);
+    g.setAttribute("transform", `translate(${t.x},${t.y})`);
+
+    const ring = document.createElementNS(NS,"circle");
+    ring.setAttribute("r", 21);
+    ring.setAttribute("class","ring");
+    g.appendChild(ring);
+
+    const circle = document.createElementNS(NS,"circle");
+    circle.setAttribute("r", 16);
+    circle.setAttribute("class","territory-circle");
+    circle.setAttribute("fill", "#555");
+    g.appendChild(circle);
+
+    const label = document.createElementNS(NS,"text");
+    label.setAttribute("class","territory-label");
+    label.setAttribute("y", -22);
+    label.textContent = t.name;
+    g.appendChild(label);
+
+    const badge = document.createElementNS(NS,"circle");
+    badge.setAttribute("r", 9);
+    badge.setAttribute("cy", 0);
+    badge.setAttribute("class","armies-badge");
+    g.appendChild(badge);
+
+    const armiesText = document.createElementNS(NS,"text");
+    armiesText.setAttribute("class","territory-armies");
+    armiesText.setAttribute("y", 3.5);
+    armiesText.textContent = "1";
+    g.appendChild(armiesText);
+
+    g.addEventListener("click", ()=>onTerritoryClick(t.id));
+    nodeLayer.appendChild(g);
+  });
+  svg.appendChild(nodeLayer);
+
+  // ---------- effetti transitori (scintille, floater) ----------
+  const fxLayer = document.createElementNS(NS,"g");
+  fxLayer.setAttribute("id","fxLayer");
+  svg.appendChild(fxLayer);
+
+  // legenda continenti (cliccabile per far lampeggiare la sagoma)
+  const legend = $("continentLegend");
+  legend.innerHTML = "";
+  Object.entries(CONTINENTS).forEach(([id,c])=>{
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    item.innerHTML = `<span class="legend-swatch" style="background:${c.color}"></span> ${c.name} (+${c.bonus})`;
+    item.onmouseenter = ()=>document.querySelector(`.continent-blob[data-cont="${id}"]`)?.classList.add("blob-highlight");
+    item.onmouseleave = ()=>document.querySelector(`.continent-blob[data-cont="${id}"]`)?.classList.remove("blob-highlight");
+    legend.appendChild(item);
+  });
+}
+
+function ownerColor(playerId){
+  const p = players.find(pl=>pl.id===playerId);
+  return p ? p.color : "#555";
+}
+
+function renderMap(){
+  const st = game.state;
+  if(!st || !st.territories) return;
+  const moveLayer = document.getElementById("moveOverlay");
+  if(moveLayer) moveLayer.innerHTML = "";
+
+  TERRITORIES.forEach(t=>{
+    const node = document.querySelector(`.territory-node[data-id="${t.id}"]`);
+    if(!node) return;
+    const info = st.territories[t.id];
+    const circle = node.querySelector(".territory-circle");
+    const armiesText = node.querySelector(".territory-armies");
+    const badge = node.querySelector(".armies-badge");
+    circle.setAttribute("fill", info?.owner ? ownerColor(info.owner) : "#555");
+
+    // rilevazione cambiamenti per animazioni
+    const prevA = prevArmies[t.id];
+    const prevO = prevOwners[t.id];
+    if(info && prevA !== undefined && info.armies > prevA){
+      spawnArmyFloater(t.x, t.y, `+${info.armies - prevA}`);
+      badge.setAttribute("r", 11);
+      setTimeout(()=>badge.setAttribute("r","9"), 220);
+    }
+    if(info && prevO !== undefined && prevO !== info.owner){
+      node.classList.remove("conquest-flash"); void node.offsetWidth;
+      node.classList.add("conquest-flash");
+    }
+    if(info){ prevArmies[t.id] = info.armies; prevOwners[t.id] = info.owner; }
+    armiesText.textContent = info?.armies ?? "-";
+
+    node.classList.remove("selected","selectable","mine","capital-turn");
+    if(info?.owner === me.playerId) node.classList.add("mine");
+    if(selection.from === t.id || selection.to === t.id) node.classList.add("selected");
+    if(isSelectableNow(t.id)) node.classList.add("selectable");
+  });
+
+  // ---------- overlay: linee di mossa possibile ----------
+  if(moveLayer && selection.from && (st.phase === "attack" || st.phase === "fortify") && isMyTurn()){
+    const from = TERRITORY_MAP[selection.from];
+    const NS = "http://www.w3.org/2000/svg";
+    if(st.phase === "attack"){
+      ADJACENCY[selection.from].forEach(otherId=>{
+        const info = st.territories[otherId];
+        if(info.owner === me.playerId) return;
+        const to = TERRITORY_MAP[otherId];
+        const line = document.createElementNS(NS,"line");
+        line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
+        line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
+        line.setAttribute("class","move-line");
+        line.setAttribute("marker-end","url(#arrowGold)");
+        moveLayer.appendChild(line);
+      });
+    } else if(st.phase === "fortify" && !st.fortifyUsed){
+      TERRITORIES.forEach(t=>{
+        if(t.id === selection.from) return;
+        if(st.territories[t.id].owner !== me.playerId) return;
+        if(!connectedOwned(st, selection.from, t.id, me.playerId)) return;
+        if(!areAdjacent(selection.from, t.id)) return; // mostra solo i collegamenti diretti per non affollare la mappa
+        const to = TERRITORY_MAP[t.id];
+        const line = document.createElementNS(NS,"line");
+        line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
+        line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
+        line.setAttribute("class","move-line fortify-line");
+        line.setAttribute("marker-end","url(#arrowGold)");
+        moveLayer.appendChild(line);
+      });
+    }
+  }
+
+  updateMapHint();
+}
+
+function spawnArmyFloater(x,y,text){
+  const fx = document.getElementById("fxLayer");
+  if(!fx) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const t = document.createElementNS(NS,"text");
+  t.setAttribute("x", x); t.setAttribute("y", y-18);
+  t.setAttribute("class","army-floater");
+  t.textContent = text;
+  fx.appendChild(t);
+  setTimeout(()=>t.remove(), 1000);
+}
+
+function spawnClashSpark(x,y){
+  const fx = document.getElementById("fxLayer");
+  if(!fx) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const g = document.createElementNS(NS,"g");
+  g.setAttribute("class","clash-spark");
+  g.setAttribute("transform", `translate(${x},${y})`);
+  g.innerHTML = `
+    <circle r="14" fill="none" stroke="#ffd873" stroke-width="3"/>
+    <path d="M-16,0 L16,0 M0,-16 L0,16 M-11,-11 L11,11 M-11,11 L11,-11" stroke="#ffd873" stroke-width="2.5"/>
+  `;
+  fx.appendChild(g);
+  setTimeout(()=>g.remove(), 600);
+}
+
+function updateMapHint(){
+  const hint = $("mapHint");
+  if(!hint) return;
+  const st = game.state;
+  if(!isMyTurn()){ hint.textContent = "In attesa del tuo turno…"; return; }
+  if(st.phase === "setup_placement" || st.phase === "reinforce"){ hint.textContent = "Clicca un tuo territorio per piazzare armate"; return; }
+  if(st.phase === "attack"){
+    hint.textContent = selection.from
+      ? "Le linee dorate mostrano i territori nemici attaccabili — clicca un bersaglio"
+      : "Clicca un tuo territorio con 2+ armate per scegliere da dove attaccare";
+    return;
+  }
+  if(st.phase === "fortify"){
+    hint.textContent = selection.from
+      ? "Territori raggiungibili evidenziati — clicca la destinazione"
+      : "Clicca un tuo territorio per spostare armate verso un altro territorio collegato";
+    return;
+  }
+  hint.textContent = "";
+}
+
+function isSelectableNow(tid){
+  const st = game.state;
+  if(!st || !isMyTurn()) return false;
+  const info = st.territories[tid];
+  if(st.phase === "setup_placement" || st.phase === "reinforce"){
+    return info.owner === me.playerId;
+  }
+  if(st.phase === "attack"){
+    if(!selection.from) return info.owner === me.playerId && info.armies > 1;
+    if(selection.from === tid) return true;
+    const fromInfo = st.territories[selection.from];
+    return areAdjacent(selection.from, tid) && info.owner !== me.playerId;
+  }
+  if(st.phase === "fortify"){
+    if(st.fortifyUsed) return false;
+    if(!selection.from) return info.owner === me.playerId && info.armies > 1;
+    if(selection.from === tid) return true;
+    return info.owner === me.playerId && connectedOwned(st, selection.from, tid, me.playerId);
+  }
+  return false;
+}
+
+function connectedOwned(st, from, to, playerId){
+  const seen = new Set([from]);
+  const queue = [from];
+  while(queue.length){
+    const cur = queue.shift();
+    if(cur === to) return true;
+    ADJACENCY[cur].forEach(n=>{
+      if(seen.has(n)) return;
+      if(st.territories[n]?.owner !== playerId) return;
+      seen.add(n); queue.push(n);
+    });
+  }
+  return seen.has(to);
+}
+
+// ============================================================
+// INTERAZIONE MAPPA
+// ============================================================
+function onTerritoryClick(tid){
+  const st = game.state;
+  if(!isMyTurn()) return;
+  if(!isSelectableNow(tid) && selection.from !== tid) return;
+
+  if(st.phase === "setup_placement" || st.phase === "reinforce"){
+    if(st.territories[tid].owner !== me.playerId) return;
+    openPlaceArmiesModal(tid);
+    return;
+  }
+  if(st.phase === "attack"){
+    if(!selection.from){ selection.from = tid; render(); return; }
+    if(selection.from === tid){ selection = {mode:null, from:null, to:null}; render(); return; }
+    selection.to = tid;
+    openAttackModal();
+    return;
+  }
+  if(st.phase === "fortify"){
+    if(st.fortifyUsed) return;
+    if(!selection.from){ selection.from = tid; render(); return; }
+    if(selection.from === tid){ selection = {mode:null, from:null, to:null}; render(); return; }
+    selection.to = tid;
+    openFortifyModal();
+    return;
+  }
+}
+
+function isMyTurn(){
+  const st = game.state;
+  if(!st || !st.order) return false;
+  return st.order[st.currentPlayerIndex] === me.playerId;
+}
+
+// ============================================================
+// MODALE: piazzamento armate (setup + rinforzo)
+// ============================================================
+function openPlaceArmiesModal(tid){
+  const st = game.state;
+  const remaining = st.phase === "setup_placement" ? st.armiesLeftSetup[me.playerId] : st.reinforcementsRemaining;
+  if(remaining <= 0){ toast("Non hai più armate da piazzare."); return; }
+  let val = 1;
+  const t = TERRITORY_MAP[tid];
+  $("numberModalTitle").textContent = `Rinforza ${t.name}`;
+  $("numberModalBody").innerHTML = `
+    <p class="text-sm" style="color:var(--ink-soft)">Armate disponibili: <b>${remaining}</b></p>
+    <div class="stepper">
+      <button id="stepMinus">−</button>
+      <div class="val" id="stepVal">1</div>
+      <button id="stepPlus">+</button>
+    </div>
+    <button class="btn btn-gold btn-block" id="confirmPlace">Piazza armate</button>
+  `;
+  $("numberModal").style.display = "flex";
+  const upd = ()=>{ $("stepVal").textContent = val; };
+  $("stepMinus").onclick = ()=>{ if(val>1) val--; upd(); };
+  $("stepPlus").onclick = ()=>{ if(val<remaining) val++; upd(); };
+  $("confirmPlace").onclick = async ()=>{
+    $("numberModal").style.display = "none";
+    await placeArmies(tid, val);
+  };
+}
+
+async function placeArmies(tid, amount){
+  const st = structuredClone(game.state);
+  st.territories[tid].armies += amount;
+  const t = TERRITORY_MAP[tid];
+
+  if(st.phase === "setup_placement"){
+    st.armiesLeftSetup[me.playerId] -= amount;
+    await logHistory(gameId, me.playerId, me.name, "setup_place", `${me.name} posiziona ${amount} armate a ${t.name}`);
+    if(st.armiesLeftSetup[me.playerId] <= 0){
+      // passa al prossimo giocatore per il posizionamento iniziale
+      const nextIdx = nextActiveIndex(st, st.currentPlayerIndex);
+      const allDone = st.order.every(pid=>st.armiesLeftSetup[pid] <= 0);
+      if(allDone){
+        st.phase = "reinforce";
+        st.currentPlayerIndex = 0;
+        st.reinforcementsRemaining = calcReinforcements(st, st.order[0]);
+        await logHistory(gameId, null, "Sistema", "setup_done", `Posizionamento iniziale completato. Inizia il turno di ${playerName(st.order[0])}.`);
+      } else {
+        st.currentPlayerIndex = nextIdx;
+        st.reinforcementsRemaining = st.armiesLeftSetup[st.order[nextIdx]];
+      }
+    }
+  } else {
+    st.reinforcementsRemaining -= amount;
+    await logHistory(gameId, me.playerId, me.name, "reinforce", `${me.name} rinforza ${t.name} con ${amount} armate`);
+    if(st.reinforcementsRemaining <= 0) st.phase = "attack";
+  }
+  await saveState(st);
+}
+
+function nextActiveIndex(st, from){
+  const n = st.order.length;
+  let idx = from;
+  for(let i=0;i<n;i++){
+    idx = (idx+1)%n;
+    if(!st.eliminated.includes(st.order[idx])) return idx;
+  }
+  return from;
+}
+
+function calcReinforcements(st, playerId){
+  const owned = Object.entries(st.territories).filter(([,v])=>v.owner===playerId).map(([k])=>k);
+  let base = Math.max(3, Math.floor(owned.length/3));
+  Object.entries(CONTINENTS).forEach(([cid,c])=>{
+    const inCont = TERRITORIES.filter(t=>t.cont===cid).map(t=>t.id);
+    if(inCont.every(tid=>st.territories[tid].owner===playerId)) base += c.bonus;
+  });
+  return base;
+}
+
+// ============================================================
+// FASE ATTACCO
+// ============================================================
+function openAttackModal(){
+  const from = TERRITORY_MAP[selection.from];
+  const to = TERRITORY_MAP[selection.to];
+  const fromInfoInit = game.state.territories[from.id];
+  const maxDiceInit = Math.min(3, fromInfoInit.armies - 1);
+  if(maxDiceInit < 1){ toast("Servono almeno 2 armate per attaccare."); selection={mode:null,from:null,to:null}; render(); return; }
+
+  let diceCount = maxDiceInit;
+  const body = $("attackModalBody");
+  const draw = ()=>{
+    const st = game.state; // sempre lo stato più recente
+    const fromInfo = st.territories[from.id];
+    const toInfo = st.territories[to.id];
+    const maxDice = Math.min(3, fromInfo.armies - 1);
+    if(diceCount > maxDice) diceCount = Math.max(1, maxDice);
+    body.innerHTML = `
+      <p><b>${from.name}</b> (${fromInfo.armies} armate) attacca <b>${to.name}</b> (${toInfo.armies} armate, ${playerName(toInfo.owner)})</p>
+      <div class="stepper">
+        <button id="diceMinus">−</button>
+        <div class="val" id="diceVal">${diceCount}</div>
+        <button id="dicePlus">+</button>
+      </div>
+      <div class="text-xs muted" style="text-align:center; color:var(--ink-soft)">Numero di dadi da attaccante (max ${maxDice})</div>
+      <div id="diceResultRow" class="dice-row"></div>
+      <div id="battleResultText" class="text-sm" style="text-align:center; min-height:20px;"></div>
+      <div class="flex gap-8" style="justify-content:center; margin-top:10px;">
+        <button class="btn btn-red" id="rollBtn">🎲 Tira i dadi</button>
+        <button class="btn btn-ghost" id="stopAttackBtn">Interrompi</button>
+      </div>
+    `;
+    $("diceMinus").onclick = ()=>{ if(diceCount>1){ diceCount--; draw(); } };
+    $("dicePlus").onclick = ()=>{ if(diceCount<Math.min(3, game.state.territories[from.id].armies-1)){ diceCount++; draw(); } };
+    $("stopAttackBtn").onclick = ()=>{ $("attackModal").style.display="none"; selection={mode:null,from:null,to:null}; render(); };
+    $("rollBtn").onclick = ()=>doAttackRound(from.id, to.id, diceCount, draw);
+  };
+  draw();
+  $("attackModal").style.display = "flex";
+}
+
+async function doAttackRound(fromId, toId, diceCount, redraw){
+  const st = structuredClone(game.state);
+  const attackerArmies = st.territories[fromId].armies;
+  const defenderArmies = st.territories[toId].armies;
+  const atkDice = Math.min(diceCount, attackerArmies - 1, 3);
+  const defDice = Math.min(2, defenderArmies);
+
+  const atkRolls = rollDice(atkDice);
+  const defRolls = rollDice(defDice);
+
+  // animazione dadi
+  const row = $("diceResultRow");
+  row.innerHTML = "";
+  atkRolls.forEach(()=>{ const d=document.createElement("div"); d.className="die attacker rolling"; d.textContent="?"; row.appendChild(d); });
+  defRolls.forEach(()=>{ const d=document.createElement("div"); d.className="die defender rolling"; d.textContent="?"; row.appendChild(d); });
+  await sleep(650);
+
+  let attackerLosses = 0, defenderLosses = 0;
+  const pairs = Math.min(atkRolls.length, defRolls.length);
+  for(let i=0;i<pairs;i++){
+    if(atkRolls[i] > defRolls[i]) defenderLosses++; else attackerLosses++;
+  }
+  const dice = row.querySelectorAll(".die");
+  atkRolls.forEach((v,i)=>{ dice[i].textContent=v; dice[i].classList.remove("rolling"); dice[i].classList.add("settled"); });
+  defRolls.forEach((v,i)=>{ dice[atkRolls.length+i].textContent=v; dice[atkRolls.length+i].classList.remove("rolling"); dice[atkRolls.length+i].classList.add("settled"); });
+  for(let i=0;i<pairs;i++){
+    if(atkRolls[i] > defRolls[i]) dice[i].classList.add("win"); else dice[atkRolls.length+i].classList.add("win");
+  }
+
+  st.territories[fromId].armies -= attackerLosses;
+  st.territories[toId].armies -= defenderLosses;
+
+  $("battleResultText").textContent = `Attaccante perde ${attackerLosses} armate · Difensore perde ${defenderLosses} armate`;
+
+  const t1 = TERRITORY_MAP[fromId], t2 = TERRITORY_MAP[toId];
+  await logHistory(gameId, me.playerId, me.name, "attack",
+    `${me.name} attacca ${t2.name} da ${t1.name}: 🎲${atkRolls.join(",")} vs 🎲${defRolls.join(",")} → attaccante -${attackerLosses}, difensore -${defenderLosses}`);
+
+  if(st.territories[toId].armies <= 0){
+    // conquista!
+    const defenderId = st.territories[toId].owner;
+    st.territories[toId].owner = me.playerId;
+    st.conqueredThisTurn = true;
+    await logHistory(gameId, me.playerId, me.name, "conquer", `⚔ ${me.name} conquista ${t2.name}!`);
+
+    // controlla eliminazione del difensore
+    const stillOwns = Object.values(st.territories).some(t=>t.owner===defenderId);
+    if(!stillOwns && defenderId){
+      st.eliminated.push(defenderId);
+      st.eliminatedBy = st.eliminatedBy || {};
+      st.eliminatedBy[defenderId] = me.playerId;
+      // trasferisci le carte del giocatore eliminato a chi lo elimina
+      st.hands[me.playerId] = [...(st.hands[me.playerId]||[]), ...(st.hands[defenderId]||[])];
+      st.hands[defenderId] = [];
+      await logHistory(gameId, null, "Sistema", "eliminate", `💀 ${playerName(defenderId)} è stato eliminato da ${me.name}!`);
+    }
+
+    await saveState(st);
+    const winnerCheck = checkVictory(st) || checkMissionVictory(st, me.playerId);
+    if(winnerCheck) return;
+
+    $("attackModal").style.display = "none";
+    openConquestModal(fromId, toId, atkDice);
+    return;
+  }
+
+  await saveState(st);
+  const maxDiceNow = Math.min(3, st.territories[fromId].armies - 1);
+  if(maxDiceNow < 1){
+    $("battleResultText").textContent += " · Non hai più armate a sufficienza per continuare l'attacco.";
+    setTimeout(()=>{ $("attackModal").style.display="none"; selection={mode:null,from:null,to:null}; render(); }, 1400);
+  } else {
+    setTimeout(()=>redraw(), 1200);
+  }
+}
+
+function openConquestModal(fromId, toId, minMove){
+  const st = game.state;
+  const t1 = TERRITORY_MAP[fromId], t2 = TERRITORY_MAP[toId];
+  const maxMove = st.territories[fromId].armies - 1;
+  let val = Math.min(Math.max(minMove,1), maxMove);
+  $("numberModalTitle").textContent = `Sposta armate a ${t2.name}`;
+  $("numberModalBody").innerHTML = `
+    <p class="text-sm" style="color:var(--ink-soft)">Territorio conquistato! Quante armate vuoi spostare da ${t1.name}? (min ${minMove}, max ${maxMove})</p>
+    <div class="stepper">
+      <button id="stepMinus">−</button>
+      <div class="val" id="stepVal">${val}</div>
+      <button id="stepPlus">+</button>
+    </div>
+    <button class="btn btn-gold btn-block" id="confirmMove">Conferma</button>
+  `;
+  $("numberModal").style.display = "flex";
+  const upd = ()=>{ $("stepVal").textContent = val; };
+  $("stepMinus").onclick = ()=>{ if(val>minMove) val--; upd(); };
+  $("stepPlus").onclick = ()=>{ if(val<maxMove) val++; upd(); };
+  $("confirmMove").onclick = async ()=>{
+    $("numberModal").style.display = "none";
+    const st2 = structuredClone(game.state);
+    st2.territories[fromId].armies -= val;
+    st2.territories[toId].armies += val;
+    await saveState(st2);
+    selection = {mode:null, from:null, to:null};
+    render();
+  };
+}
+
+// ============================================================
+// FASE FORTIFICAZIONE
+// ============================================================
+function openFortifyModal(){
+  const st = game.state;
+  const from = TERRITORY_MAP[selection.from], to = TERRITORY_MAP[selection.to];
+  const fromInfo = st.territories[from.id];
+  const max = fromInfo.armies - 1;
+  if(max < 1){ toast("Nessuna armata disponibile da spostare."); selection={mode:null,from:null,to:null}; render(); return; }
+  let val = 1;
+  $("numberModalTitle").textContent = `Sposta armate`;
+  $("numberModalBody").innerHTML = `
+    <p class="text-sm" style="color:var(--ink-soft)">Da <b>${from.name}</b> a <b>${to.name}</b> (max ${max})</p>
+    <div class="stepper">
+      <button id="stepMinus">−</button>
+      <div class="val" id="stepVal">1</div>
+      <button id="stepPlus">+</button>
+    </div>
+    <button class="btn btn-gold btn-block" id="confirmFortify">Fortifica</button>
+  `;
+  $("numberModal").style.display = "flex";
+  const upd = ()=>{ $("stepVal").textContent = val; };
+  $("stepMinus").onclick = ()=>{ if(val>1) val--; upd(); };
+  $("stepPlus").onclick = ()=>{ if(val<max) val++; upd(); };
+  $("confirmFortify").onclick = async ()=>{
+    $("numberModal").style.display = "none";
+    const st2 = structuredClone(game.state);
+    st2.territories[from.id].armies -= val;
+    st2.territories[to.id].armies += val;
+    st2.fortifyUsed = true;
+    await logHistory(gameId, me.playerId, me.name, "fortify", `${me.name} sposta ${val} armate da ${from.name} a ${to.name}`);
+    await saveState(st2);
+    selection = {mode:null, from:null, to:null};
+    render();
+  };
+}
+
+// ============================================================
+// CARTE TERRITORIO
+// ============================================================
+function renderCards(){
+  const st = game.state;
+  const hand = st.hands?.[me.playerId] || [];
+  const list = $("cardsList");
+  list.innerHTML = "";
+  if(!hand.length){ list.innerHTML = `<div class="text-xs" style="color:var(--ink-soft)">Nessuna carta in mano.</div>`; }
+  hand.forEach((card, idx)=>{
+    const chip = document.createElement("div");
+    chip.className = "card-chip";
+    chip.dataset.idx = idx;
+    chip.innerHTML = `${SYMBOL_ICON[card.symbol]} ${card.territory ? TERRITORY_MAP[card.territory].name : "Jolly"}`;
+    chip.onclick = ()=>{ chip.classList.toggle("selected"); updateTradeButton(); };
+    list.appendChild(chip);
+  });
+  updateTradeButton();
+}
+
+function updateTradeButton(){
+  const selected = [...document.querySelectorAll(".card-chip.selected")];
+  const btn = $("tradeCardsBtn");
+  btn.style.display = isMyTurn() && (game.state.phase==="reinforce") ? "inline-block" : "none";
+  btn.disabled = selected.length !== 3;
+  btn.onclick = tradeCards;
+}
+
+async function tradeCards(){
+  const selected = [...document.querySelectorAll(".card-chip.selected")].map(el=>parseInt(el.dataset.idx));
+  const st = structuredClone(game.state);
+  const hand = st.hands[me.playerId];
+  const cards = selected.map(i=>hand[i]);
+  if(!isValidCardSet(cards)){ toast("Combinazione di carte non valida."); return; }
+
+  st.setsPlayed = (st.setsPlayed||0) + 1;
+  const bonus = cardSetBonus(st.setsPlayed);
+  // bonus territoriale: +2 armate extra se possiedi un territorio raffigurato in una delle carte giocate
+  let territoryBonus = 0;
+  cards.forEach(c=>{
+    if(c.territory && st.territories[c.territory]?.owner === me.playerId){
+      st.territories[c.territory].armies += 2;
+      territoryBonus = 2;
+    }
+  });
+
+  st.hands[me.playerId] = hand.filter((_,i)=>!selected.includes(i));
+  st.discard = [...(st.discard||[]), ...cards];
+  st.reinforcementsRemaining = (st.reinforcementsRemaining||0) + bonus;
+
+  await logHistory(gameId, me.playerId, me.name, "trade_cards",
+    `${me.name} gioca un tris di carte e ottiene ${bonus} armate${territoryBonus? " (+2 bonus territoriale)":""}`);
+  await saveState(st);
+}
+
+// ============================================================
+// OBIETTIVO SEGRETO
+// ============================================================
+function renderMission(){
+  const st = game.state;
+  const box = $("missionContent");
+  const mission = st.missions?.[me.playerId];
+  if(!mission){ box.innerHTML = `<p class="text-xs" style="color:var(--ink-soft)">Nessun obiettivo assegnato.</p>`; return; }
+
+  let progressHtml = "";
+  if(mission.type === "territories"){
+    const owned = ownedCount(st, me.playerId);
+    const pct = Math.min(100, Math.round(owned/mission.count*100));
+    progressHtml = `
+      <div class="mission-progress-bar"><div class="mission-progress-fill" style="width:${pct}%"></div></div>
+      <div class="text-xs" style="color:var(--ink-soft); margin-top:4px;">${owned} / ${mission.count} territori</div>`;
+  } else if(mission.type === "continents" || mission.type === "continents_plus_one"){
+    const chips = mission.continents.map(c=>{
+      const done = continentFullyOwned(st, c, me.playerId);
+      return `<span class="mission-chip ${done?'done':''}">${done?'✓':'—'} ${CONTINENTS[c].name}</span>`;
+    }).join("");
+    let extra = "";
+    if(mission.type === "continents_plus_one"){
+      const extraCont = Object.keys(CONTINENTS).find(c=>!mission.continents.includes(c) && continentFullyOwned(st, c, me.playerId));
+      extra = `<span class="mission-chip ${extraCont?'done':''}">${extraCont ? '✓ '+CONTINENTS[extraCont].name : '— un terzo a scelta'}</span>`;
+    }
+    progressHtml = `<div class="mission-chips">${chips}${extra}</div>`;
+  } else if(mission.type === "destroy"){
+    const targetAlive = !(st.eliminated||[]).includes(mission.targetId);
+    const byMe = st.eliminatedBy?.[mission.targetId] === me.playerId;
+    const status = byMe ? "✓ Eliminato da te!" : targetAlive ? "In gioco" : "Eliminato da un altro giocatore — ripiega su 24 territori";
+    progressHtml = `<div class="mission-chip ${byMe?'done':''}">${escapeHtml(playerName(mission.targetId))}: ${status}</div>`;
+  }
+
+  box.innerHTML = `
+    <div class="mission-icon">${MISSION_ICON[mission.type]}</div>
+    <p class="text-sm" style="margin:6px 0 10px;">${escapeHtml(mission.text)}</p>
+    ${progressHtml}
+    <p class="text-xs" style="color:var(--ink-soft); margin-top:10px;">🤫 Il tuo obiettivo è segreto: solo tu lo vedi nel tuo pannello.</p>
+  `;
+
+  if(st.phase === "gameover"){
+    const reveal = players.map(p=>{
+      const m = st.missions?.[p.id];
+      if(!m) return "";
+      return `<div class="text-xs" style="margin-top:6px;"><b>${escapeHtml(p.name)}:</b> ${escapeHtml(m.text)}</div>`;
+    }).join("");
+    box.innerHTML += `<div style="margin-top:14px; border-top:1px dashed rgba(0,0,0,.15); padding-top:10px;">
+      <b class="text-xs">Obiettivi rivelati a fine partita</b>${reveal}
+    </div>`;
+  }
+}
+
+// ============================================================
+// PANNELLO AZIONI
+// ============================================================
+function renderActionPanel(){
+  const st = game.state;
+  const content = $("actionContent");
+  if(!isMyTurn()){
+    content.innerHTML = `<p class="text-sm" style="color:var(--ink-soft)">In attesa che <b>${playerName(st.order[st.currentPlayerIndex])}</b> completi il suo turno…</p>`;
+    return;
+  }
+  if(st.phase === "setup_placement"){
+    content.innerHTML = `<p class="text-sm">Posiziona le tue armate iniziali cliccando sui territori che possiedi.</p>
+      <p class="text-sm"><b>Armate rimanenti: ${st.armiesLeftSetup[me.playerId]}</b></p>`;
+    return;
+  }
+  if(st.phase === "reinforce"){
+    const forcedTrade = (st.hands[me.playerId]||[]).length >= 5;
+    content.innerHTML = `
+      <p class="text-sm"><b>Fase di rinforzo</b><br>Armate da piazzare: <b>${st.reinforcementsRemaining}</b></p>
+      ${forcedTrade ? `<p class="text-xs" style="color:var(--danger)">Hai 5+ carte: devi giocare un tris prima di continuare.</p>` : ""}
+      <p class="text-xs" style="color:var(--ink-soft)">Clicca sui tuoi territori per aggiungere armate.</p>
+    `;
+    return;
+  }
+  if(st.phase === "attack"){
+    content.innerHTML = `
+      <p class="text-sm"><b>Fase di attacco</b></p>
+      <p class="text-xs" style="color:var(--ink-soft)">Clicca un tuo territorio, poi un territorio nemico adiacente.</p>
+      <button class="btn btn-gold btn-block" id="toFortifyBtn">Vai alla fortificazione →</button>
+    `;
+    $("toFortifyBtn").onclick = async ()=>{
+      const st2 = structuredClone(game.state);
+      st2.phase = "fortify";
+      await saveState(st2);
+      selection = {mode:null, from:null, to:null};
+    };
+    return;
+  }
+  if(st.phase === "fortify"){
+    content.innerHTML = `
+      <p class="text-sm"><b>Fase di fortificazione</b></p>
+      <p class="text-xs" style="color:var(--ink-soft)">${st.fortifyUsed ? "Hai già spostato armate questo turno." : "Puoi spostare armate una sola volta tra territori collegati."}</p>
+      <button class="btn btn-red btn-block" id="endTurnBtn">Termina turno →</button>
+    `;
+    $("endTurnBtn").onclick = endTurn;
+    return;
+  }
+  if(st.phase === "gameover"){
+    content.innerHTML = st.winReason === "mission"
+      ? `<p><b>🏆 ${playerName(st.winner)} ha completato il proprio obiettivo segreto e vince la partita!</b></p>`
+      : `<p><b>🏆 ${playerName(st.winner)} ha conquistato il mondo intero!</b></p>`;
+  }
+}
+
+async function endTurn(){
+  const st = structuredClone(game.state);
+  if(st.conqueredThisTurn){
+    const deckLeft = st.deck.length ? st.deck : st.discard;
+    if(st.deck.length === 0 && st.discard.length){ st.deck = [...st.discard]; st.discard = []; }
+    if(st.deck.length){
+      const card = st.deck.pop();
+      st.hands[me.playerId] = [...(st.hands[me.playerId]||[]), card];
+      await logHistory(gameId, me.playerId, me.name, "draw_card", `${me.name} pesca una carta territorio`);
+    }
+  }
+  st.conqueredThisTurn = false;
+  st.fortifyUsed = false;
+  st.currentPlayerIndex = nextActiveIndex(st, st.currentPlayerIndex);
+  st.phase = "reinforce";
+  st.reinforcementsRemaining = calcReinforcements(st, st.order[st.currentPlayerIndex]);
+  await logHistory(gameId, null, "Sistema", "end_turn", `Turno di ${playerName(st.order[st.currentPlayerIndex])}`);
+  selection = {mode:null, from:null, to:null};
+  await saveState(st);
+}
+
+function checkVictory(st){
+  const owners = new Set(Object.values(st.territories).map(t=>t.owner));
+  if(owners.size === 1){
+    const winner = [...owners][0];
+    st.phase = "gameover";
+    st.winner = winner;
+    st.winReason = "world";
+    supabase.from("games").update({ state: st, status:"finished", winner_id: winner }).eq("id", gameId);
+    logHistory(gameId, null, "Sistema", "victory", `🏆 ${playerName(winner)} ha conquistato il mondo intero!`);
+    game.state = st; game.status = "finished";
+    render();
+    return true;
+  }
+  return false;
+}
+
+function ownedCount(st, playerId){
+  return Object.values(st.territories).filter(t=>t.owner===playerId).length;
+}
+function continentFullyOwned(st, contId, playerId){
+  return TERRITORIES.filter(t=>t.cont===contId).every(t=>st.territories[t.id].owner===playerId);
+}
+
+function isMissionComplete(st, playerId){
+  const mission = st.missions?.[playerId];
+  if(!mission) return false;
+  if(mission.type === "territories"){
+    return ownedCount(st, playerId) >= mission.count;
+  }
+  if(mission.type === "continents"){
+    return mission.continents.every(c=>continentFullyOwned(st, c, playerId));
+  }
+  if(mission.type === "continents_plus_one"){
+    if(!mission.continents.every(c=>continentFullyOwned(st, c, playerId))) return false;
+    return Object.keys(CONTINENTS).some(c=>!mission.continents.includes(c) && continentFullyOwned(st, c, playerId));
+  }
+  if(mission.type === "destroy"){
+    if(st.eliminatedBy?.[mission.targetId] === playerId) return true;
+    if((st.eliminated||[]).includes(mission.targetId) && st.eliminatedBy?.[mission.targetId] !== playerId){
+      return ownedCount(st, playerId) >= 24; // il bersaglio è stato eliminato da un altro: ripiego su 24 territori
+    }
+    return false;
+  }
+  return false;
+}
+
+function checkMissionVictory(st, playerId){
+  if(st.phase === "gameover") return true;
+  if(!isMissionComplete(st, playerId)) return false;
+  st.phase = "gameover";
+  st.winner = playerId;
+  st.winReason = "mission";
+  supabase.from("games").update({ state: st, status:"finished", winner_id: playerId }).eq("id", gameId);
+  logHistory(gameId, null, "Sistema", "victory", `🏆 ${playerName(playerId)} ha completato il proprio obiettivo segreto e vince la partita!`);
+  game.state = st; game.status = "finished";
+  render();
+  return true;
+}
+
+// ============================================================
+// PANNELLI: giocatori, turno, storico
+// ============================================================
+function playerName(id){ const p = players.find(pl=>pl.id===id); return p ? p.name : "—"; }
+
+function renderPlayers(){
+  const st = game.state;
+  const list = $("playersList");
+  list.innerHTML = "";
+  players.forEach(p=>{
+    const owned = Object.values(st.territories||{}).filter(t=>t.owner===p.id).length;
+    const armies = Object.values(st.territories||{}).filter(t=>t.owner===p.id).reduce((s,t)=>s+t.armies,0);
+    const isEliminated = (st.eliminated||[]).includes(p.id);
+    const isCurrent = st.order && st.order[st.currentPlayerIndex] === p.id;
+    const row = document.createElement("div");
+    row.className = "player-row" + (isCurrent?" current-turn":"") + (isEliminated?" eliminated":"");
+    row.innerHTML = `
+      <div class="player-dot" style="background:${p.color}"></div>
+      <div style="flex:1">
+        <div class="pname">${escapeHtml(p.name)} ${p.id===me.playerId?"(tu)":""}</div>
+        <div class="pstats">${owned} territori · ${armies} armate · ${(st.hands?.[p.id]||[]).length} carte</div>
+      </div>
+      ${isCurrent ? '<span title="turno corrente">🎯</span>' : ''}
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderTurnBanner(){
+  const st = game.state;
+  const phaseNames = { setup_placement:"Posizionamento iniziale", reinforce:"Rinforzo", attack:"Attacco", fortify:"Fortificazione", gameover:"Fine partita" };
+  const banner = $("turnBanner");
+  banner.textContent = st.phase === "gameover"
+    ? `🏆 Vince ${playerName(st.winner)}`
+    : `Turno di ${playerName(st.order[st.currentPlayerIndex])}${isMyTurn()?" (tu)":""}`;
+  $("phaseBadge").textContent = phaseNames[st.phase] || st.phase;
+
+  if(prevCurrentIndex !== null && prevCurrentIndex !== st.currentPlayerIndex){
+    banner.classList.remove("turn-changed"); void banner.offsetWidth;
+    banner.classList.add("turn-changed");
+  }
+  prevCurrentIndex = st.currentPlayerIndex;
+
+  if(st.phase === "gameover" && !confettiFired){
+    confettiFired = true;
+    fireConfetti();
+  }
+}
+
+function fireConfetti(){
+  const panel = document.querySelector(".map-panel");
+  if(!panel) return;
+  const colors = players.map(p=>p.color);
+  for(let i=0;i<70;i++){
+    const piece = document.createElement("div");
+    piece.className = "confetti-piece";
+    piece.style.left = Math.random()*100 + "%";
+    piece.style.background = colors[Math.floor(Math.random()*colors.length)] || "#c9a24b";
+    piece.style.animationDuration = (1.2 + Math.random()*1.4) + "s";
+    piece.style.animationDelay = (Math.random()*0.6) + "s";
+    panel.appendChild(piece);
+    setTimeout(()=>piece.remove(), 3000);
+  }
+}
+
+function renderHistory(items){
+  const list = $("historyList");
+  list.innerHTML = "";
+  items.slice(-100).forEach(appendHistoryItem);
+}
+function appendHistoryItem(h){
+  const list = $("historyList");
+  const el = document.createElement("div");
+  el.className = "history-item";
+  el.innerHTML = `<span class="htime">${fmtTime(h.created_at)}</span>${escapeHtml(h.message)}`;
+  list.appendChild(el);
+  list.scrollTop = list.scrollHeight;
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+function rollDice(n){
+  const r = [];
+  for(let i=0;i<n;i++) r.push(1+Math.floor(Math.random()*6));
+  return r.sort((a,b)=>b-a);
+}
+function sleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+function escapeHtml(s){ return (s||"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+if(gameId){ document.getElementById("homeScreen").style.display="none"; boot(); } else { showHome(); }
+
+</script>
+</body>
+</html>
