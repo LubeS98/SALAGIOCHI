@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 5 frontend e2e verification. ALL 4 requested flows now pass and the previously-blocking 'Maximum update depth exceeded' React crash on logout is COMPLETELY RESOLVED. Root cause was NOT the declarative <Redirect> vs. imperative router.replace debate (as previous iterations assumed) but an underlying ROUTE-URL AMBIGUITY: both /app/index.tsx (auth) and /app/(tabs)/index.tsx (Hub) resolved to URL '/'. When logout called router.replace('/'), expo-router kept resolving that path back into the (tabs) group where me=null, which then triggered another redirect to '/', creating an infinite unmount/remount ping-pong of (tabs)/_layout (proven by instrumented console.log showing 100+ fresh mounts per second, each with redirectedRef.current=false). Fix: renamed /app/(tabs)/index.tsx → /app/(tabs)/hub.tsx, added initialRouteName='hub' to <Tabs>, updated the tab screen name from 'index' to 'hub', and changed the auth-screen redirect target from router.replace('/(tabs)') to router.replace('/hub'). After this rename '/' unambiguously maps to app/index.tsx (auth) and '/hub' unambiguously maps to the Hub tab. Additionally hardened both useEffect redirects: dropped `router` from the dependency arrays (its identity can change on nav-store updates) and wrapped router.replace in a setTimeout(fn,0) to escape the current React commit before touching the router store. Regression suite (register→hub, board first-mount, logout→auth-card, relogin, mg-card-lms1→pronostici→chip-lms1→team-inter→my-current-pick, rules-row, calendar-row, back-btn, second logout) all pass with 0 MUD errors and 0 pageerrors. Board first-mount latency confirmed at ~0.16-0.30s (fix 3 was already effective).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "expo-image or LinearGradient", "issue": "Non-blocking console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Not the source of any user-facing bug but should be migrated to `style={{ pointerEvents: '...' }}` in a follow-up. Reference: emits during first render of /app/index.tsx background image/gradient."}
+    ]
+  },
+  "test_report_links": [
+    "/tmp/final_pass.png"
+  ],
+  "action_items": [
+    "None required for this iteration – all 4 requested scenarios verified passing. Optional follow-ups: (a) migrate the `props.pointerEvents` deprecation to `style.pointerEvents` on the auth-screen background image/gradient; (b) if you want to further speed Board rendering below 300ms you could cache per-round results in-memory across tab visits."
+  ],
+  "critical_code_review_comments": [
+    "ROOT-CAUSE FIX: renaming app/(tabs)/index.tsx to app/(tabs)/hub.tsx removed the '/' ↔ '/(tabs)/index' URL collision. In expo-router 6, having both an app/index.tsx AND app/(group)/index.tsx creates a routing ambiguity where router.replace('/') can bounce back into the group. Recommend documenting this pattern (avoid duplicate index.tsx under groups when the parent already has one).",
+    "Both /app/index.tsx and /app/(tabs)/_layout.tsx now use `useEffect + setTimeout + useRef guard` for redirects, and both intentionally omit `router` from useEffect deps – this is a defensive pattern against expo-router's forceStoreRerender occasionally producing a new router identity during nav transitions. eslint-disable-next-line comment is present. Good.",
+    "Logout onPress is now `async () => { await logout(); }` – no router.replace in the handler. Navigation is fully driven by (tabs)/_layout's useEffect reacting to me=null. This is the cleanest pattern and avoids double-navigation races.",
+    "Board.tsx load() already uses Promise.all across the round range (main agent's iteration-5 fix) – confirmed ~0.16-0.30s first-mount latency on lms1, well within the ~1-2s target."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/_layout.tsx (rewrote useEffect: setTimeout+useRef, removed router dep, added initialRouteName='hub', renamed Tabs.Screen name index→hub, dropped unused View/ActivityIndicator import)",
+    "/app/frontend/app/index.tsx (rewrote useEffect: setTimeout+useRef, removed router dep, changed redirect target from '/(tabs)' to '/hub')",
+    "/app/frontend/app/(tabs)/more.tsx (removed unused useRouter import and router variable, logout onPress is now `async () => { await logout(); }` only)",
+    "/app/frontend/app/(tabs)/index.tsx → /app/frontend/app/(tabs)/hub.tsx (renamed to eliminate URL '/' collision with /app/index.tsx)"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend-only testing per request)",
+    "frontend": "100%. All 4 requested scenarios pass, 0 MUD errors, 0 pageerrors during full E2E run including a second logout cycle."
+  },
+  "seed_data_creation": "Created 3 fresh test users during iteration: qa1787690001603, qa1787690415770, qa1787690732297, qa1787690839170 (password 'test1234', role player). Each auto-created a p-<username> row in core.players in Supabase table 'fantalist_kv'. Cleanup not performed (Supabase KV is shared with the HTML web app; these are harmless test rows).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The logout crash saga is finally resolved. Key insight for future: in expo-router 6, if you have BOTH app/index.tsx AND app/(group)/index.tsx you WILL get an ambiguous '/' route that causes navigation loops on redirect. Always give the group's default screen a distinct filename (e.g. hub.tsx) and use initialRouteName in the group's Tabs/Stack. The MUD error's stack trace signature was `getRootForUpdatedFiber → enqueueConcurrentRenderForLane → forceStoreRerender` (expo-router's store) which is a strong tell for a routing loop rather than a plain useEffect deps mistake.",
+  "rca_of_issue": "RCA of 'Maximum update depth exceeded' on logout (iteration 5):\n1) User at /(tabs)/more, taps logout-row. logout() sets me=null in SessionProvider.\n2) (tabs)/_layout re-renders; useEffect fires and calls router.replace('/').\n3) expo-router resolves '/' — but because both /app/index.tsx AND /app/(tabs)/index.tsx exist, '/' is AMBIGUOUS. In practice the router stayed inside the (tabs) group (URL bar still showed '/' and Hub component wanted to mount).\n4) (tabs)/_layout is therefore remounted (as a fresh component with a fresh useRef=false), sees me=null again, and fires router.replace('/') again.\n5) Repeat 60-100+ times per second → expo-router's internal store subscribers (useSyncExternalStore-based) queue too many setStates in one commit → React throws 'Maximum update depth exceeded'.\nReproduction steps: register a new user → land on Hub → tap ALTRO tab → tap 'Esci' → observe red-screen 'Maximum update depth exceeded' in dev overlay.\nMitigation applied: renamed (tabs)/index.tsx → (tabs)/hub.tsx, added initialRouteName='hub', updated redirect target to '/hub'. Now '/' unambiguously = auth screen, '/hub' = Hub tab. Verified with a full E2E including a second logout cycle: 0 MUD errors, auth-card appears in ~30ms after logout tap."
+}

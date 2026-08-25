@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { kvGet, kvSet, kvList, K } from "./store";
-import { derive, randomHex, slug } from "./crypto";
+import { derive, randomHex, slug, DEFAULT_ITERATIONS, LEGACY_ITERATIONS } from "./crypto";
 import { TEAMS, DEMO_PLAYERS, CALENDAR, MinigameKey } from "./data";
 
 export type Role = "admin" | "player";
@@ -12,6 +12,7 @@ export type User = {
   playerId?: string | null;
   saltHex: string;
   hashHex: string;
+  iters?: number;
   createdAt: string;
 };
 
@@ -99,12 +100,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string): Promise<User> => {
     const u = slug(username);
+    if (!u) throw new Error("Username non valido");
+    console.log("[auth] login attempt for", u);
     const rec = await kvGet<User>(K.user(u));
     if (!rec) throw new Error("Utente non trovato");
-    const h = derive(password, rec.saltHex);
+    const iters = rec.iters ?? LEGACY_ITERATIONS;
+    console.log("[auth] deriving password with", iters, "iterations");
+    const h = derive(password, rec.saltHex, iters);
     if (h !== rec.hashHex) throw new Error("Password errata");
-    setMe(rec);
     await AsyncStorage.setItem("fl-session", `${u}:${Date.now()}`);
+    setMe(rec);
+    console.log("[auth] login ok");
     return rec;
   };
 
@@ -112,12 +118,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const u = slug(username);
     if (!u) throw new Error("Username non valido");
     if (password.length < 4) throw new Error("Password troppo corta (min 4 caratteri)");
+    console.log("[auth] register attempt for", u);
     const existing = await kvGet<User>(K.user(u));
     if (existing) throw new Error("Username già in uso");
     const users = await kvList<User>("user-");
     const isFirst = users.length === 0;
     const saltHex = randomHex(16);
-    const hashHex = derive(password, saltHex);
+    console.log("[auth] deriving password (register) with", DEFAULT_ITERATIONS, "iterations");
+    const hashHex = derive(password, saltHex, DEFAULT_ITERATIONS);
     const finalName = displayName || username;
     // Prefer matching a demo player by slug; otherwise auto-create a new player and add to core.players
     let playerId: string | null = null;
@@ -142,12 +150,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       playerId,
       saltHex,
       hashHex,
+      iters: DEFAULT_ITERATIONS,
       createdAt: new Date().toISOString(),
     };
     await kvSet(K.user(u), rec);
     if (rec.playerId) await kvSet(K.claim(rec.playerId), u);
-    setMe(rec);
     await AsyncStorage.setItem("fl-session", `${u}:${Date.now()}`);
+    setMe(rec);
+    console.log("[auth] register ok");
     return rec;
   };
 

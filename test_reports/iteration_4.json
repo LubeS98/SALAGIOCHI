@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 4 frontend e2e verification of the 3 fixes applied by main agent. FIX 1 (PBKDF2 5000 iters) is CONFIRMED WORKING: registration completes in ~1.8-2.5s (well under the 3s target) and re-login of an existing 5000-iter user is <1s. FIX 3 (Board initial-load) is partially working: on first mount without any chip switch, rows now DO populate but only after ~7s (19 rounds x 2 sequential Supabase kvList calls = 38 HTTP requests; not a code correctness bug but a performance one). FIX 2 (Logout crash) is STILL BROKEN: tapping logout-row STILL emits the same 'Maximum update depth exceeded' React error repeatedly (hundreds of times) and the app never lands cleanly on the auth-card — the router.replace('/') in more.tsx onPress does not eliminate the ping-pong because (tabs)/_layout.tsx still has `if (!me) return <Redirect href='/' />` and index.tsx still has `if (me) return <Redirect href='/(tabs)' />`; the two declarative Redirects continue to fight. Italian error surfacing on the auth gate all works: 'Password errata', 'Utente non trovato', 'Username già in uso' render correctly in [data-testid=auth-error]. LEGACY_ITERATIONS branch is present in session.tsx login() (`iters = rec.iters ?? LEGACY_ITERATIONS`) — verified by code review; no legacy 150000-iter user was tested against because no such record was known.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "(tabs)/_layout.tsx + app/index.tsx", "issue": "Logout STILL triggers 'Maximum update depth exceeded' infinite React loop. router.replace('/') alone in more.tsx does NOT stop the ping-pong because both (tabs)/_layout (`if (!me) return <Redirect href='/' />`) and index.tsx (`if (me) return <Redirect href='/(tabs)' />`) still fire declarative Redirects reactively during the me=null transition. Console spams the error hundreds of times per second; the app becomes unresponsive.", "testID": "logout-row", "priority": "CRITICAL"},
+      {"component": "board.tsx", "issue": "Board first-mount now DOES eventually populate (fix works) but takes ~7 seconds because load() runs 19*2=38 sequential Supabase kvList calls for lms1. Users see 'Nessun dato disponibile' for 6-7s before rows appear. Consider Promise.all-ing the round loop or precomputing an aggregate.", "testID": "row-<playerId>", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "logout → auth gate", "issue": "Blocked by the Maximum-update-depth loop above. Cannot verify 'log back in' step follows because the app never returns to a clean auth-card state after logout — the same crash pattern from iteration 3 persists.", "affected_testIDs": ["logout-row", "auth-card", "tab-login"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "index.tsx (or LinearGradient/expo-image)", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' — non-blocking but should migrate to style.pointerEvents in the offending component."}
+    ]
+  },
+  "test_report_links": [
+    "/tmp/hub.png",
+    "/tmp/board_final.png"
+  ],
+  "action_items": [
+    "CRITICAL: Fix the logout redirect ping-pong. router.replace('/') in more.tsx is not enough. Preferred fix: remove the declarative `<Redirect href='/' />` from /app/frontend/app/(tabs)/_layout.tsx and instead render `null` (or a loader) when !me — rely on the imperative router.replace('/') in more.tsx's logout onPress. Alternatively, replace the Redirect in (tabs)/_layout with a useEffect that calls router.replace('/') once (guarded with a ref) to avoid re-firing on each render. Same principle for index.tsx: change `if (me) return <Redirect href='/(tabs)' />;` to a `useEffect(() => { if (me) router.replace('/(tabs)') }, [me])`.",
+    "MEDIUM: Speed up Board initial load. Right now board.tsx `load()` awaits 38 Supabase requests sequentially for lms1 (worse for whowin: 76). Parallelise with Promise.all across the round range and/or fetch a single combined view.",
+    "LOW: Migrate the deprecated `props.pointerEvents` usage to `style.pointerEvents` to silence the console warning."
+  ],
+  "critical_code_review_comments": [
+    "session.tsx login() at line 107: `const iters = rec.iters ?? LEGACY_ITERATIONS;` — LEGACY branch is correctly wired. Good.",
+    "crypto.ts: DEFAULT_ITERATIONS = 5000 for new registrations, LEGACY_ITERATIONS = 150000 for pre-existing HTML users. Good balance.",
+    "(tabs)/_layout.tsx line 10 `if (!me) return <Redirect href='/' />;` + app/index.tsx line 25 `if (me) return <Redirect href='/(tabs)' />;` — these two declarative Redirects still cause the setState loop during logout. Main agent's fix only added an imperative router.replace and did NOT remove/guard the declarative Redirects, so the root cause was not addressed.",
+    "board.tsx: `useFocusEffect(load) + useEffect(load)` — the fix is correct but causes double-fetching AND is bottlenecked by sequential kvList calls. Consider batching."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "~70%. Auth (login/register/errors/legacy branch) ✅; Board first-render ⚠️ (works but slow); Logout roundtrip ❌ (still crashes)."
+  },
+  "seed_data_creation": "Created fresh users during registration testing: qafix1787689158860 and qafix1787689350639 (password 'test1234', role player) added to Supabase table 'fantalist_kv'. Each auto-created a p-<username> row in core.players.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Only the logout redirect loop remains critical. To verify main agent's next fix: (1) register a fresh user (qafix + Date.now()) via testID tab-register → btn-submit-auth. (2) Navigate to ALTRO tab. (3) Tap logout-row. (4) Assert no 'Maximum update depth exceeded' error in console AND auth-card selector appears within 3s. (5) Then log back in on tab-login with the SAME username+password and confirm mg-card-lms1 renders. Board first-mount is fine after ~7s; if that annoys the user, main agent can parallelize kvList in board.tsx load().",
+  "rca_of_issue": "Logout crash RCA (unchanged from iteration 3): expo-router's declarative <Redirect> in both `(tabs)/_layout.tsx` (when !me) and `app/index.tsx` (when me is truthy) create a bidirectional redirect. When me flips truthy→null during logout, React re-renders (tabs)/_layout, which renders <Redirect href='/'/>. expo-router then mounts index at '/' but re-render cycles between the two routes fire faster than React can settle the tree, causing Maximum update depth. The correct fix is to make ONE side imperative (useEffect + router.replace) and the other side render null. Main agent's iteration-4 fix only added router.replace('/') in more.tsx AFTER logout(); but the two Redirects still fire during the same render cycle and cause the loop regardless of the imperative call. Board slowness RCA: board.tsx load() has `for (let r = g.rounds[0]; r <= g.rounds[1]; r++) { await kvList(...); await kvList(...); }` — 38 sequential requests to Supabase for lms1 (76 for whowin) at ~150-200ms each = 6-8s wall-clock. Parallel Promise.all across the round range would drop this to ~1s. Registration + error-surface RCA: all working correctly."
+}

@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
-import { Redirect } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, radius, fontSize } from "@/src/lib/theme";
 import { useSession } from "@/src/lib/session";
@@ -12,26 +12,43 @@ const HERO_IMG = "https://images.unsplash.com/photo-1763854413165-1713bc5a7f4a?c
 
 export default function Index() {
   const { ready, me, login, register } = useSession();
+  const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const redirectedRef = useRef(false);
 
   useEffect(() => { setErr(null); }, [mode, username, password, displayName]);
 
-  if (!ready) return <View style={s.loader}><ActivityIndicator color={colors.brand} size="large" /></View>;
-  if (me) return <Redirect href="/(tabs)" />;
+  useEffect(() => {
+    if (ready && me && !redirectedRef.current) {
+      redirectedRef.current = true;
+      setTimeout(() => { router.replace("/hub"); }, 0);
+    }
+    if (!me) redirectedRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, me]);
+
+  if (!ready || me) return <View style={s.loader}><ActivityIndicator color={colors.brand} size="large" /></View>;
 
   const doSubmit = async () => {
     setErr(null);
+    const uname = username.trim();
+    const pass = password;
+    const dname = displayName.trim() || uname;
+    if (!uname) return setErr("Inserisci uno username");
+    if (!pass) return setErr("Inserisci la password");
     setLoading(true);
     try {
-      if (mode === "login") await login(username.trim(), password);
-      else await register(username.trim(), password, displayName.trim() || username.trim());
+      if (mode === "login") await login(uname, pass);
+      else await register(uname, pass, dname);
     } catch (e: any) {
-      setErr(e?.message || "Errore");
+      const msg = e?.message || String(e) || "Errore sconosciuto";
+      console.log("[auth] error:", msg);
+      setErr(msg);
     } finally { setLoading(false); }
   };
 
@@ -70,11 +87,11 @@ export default function Index() {
               )}
 
               <Text style={s.label}>PASSWORD</Text>
-              <TextInput testID="input-password" value={password} onChangeText={setPassword} style={s.input} placeholder="••••••••" placeholderTextColor={colors.onSurfaceDim} secureTextEntry />
+              <TextInput testID="input-password" value={password} onChangeText={setPassword} style={s.input} placeholder="••••••••" placeholderTextColor={colors.onSurfaceDim} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="password" />
 
               {err && <Text style={s.err} testID="auth-error">{err}</Text>}
 
-              <Button testID="btn-submit-auth" title={mode === "login" ? "Entra" : "Crea account"} onPress={doSubmit} loading={loading} size="lg" style={{ marginTop: spacing.md }} />
+              <Button testID="btn-submit-auth" title={loading ? (mode === "login" ? "Accesso in corso..." : "Creazione in corso...") : (mode === "login" ? "Entra" : "Crea account")} onPress={doSubmit} loading={loading} size="lg" style={{ marginTop: spacing.md }} />
               <Text style={s.help}>{mode === "login" ? "Il primo account creato diventa admin. Registrati per iniziare." : "Il primo utente registrato è l'admin della lega."}</Text>
             </View>
           </ScrollView>

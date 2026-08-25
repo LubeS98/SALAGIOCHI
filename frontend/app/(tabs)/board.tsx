@@ -18,17 +18,26 @@ export default function BoardScreen() {
   const load = useCallback(async () => {
     if (!core) return;
     const g = MINIGAMES.find((m) => m.key === game)!;
-    // Gather all approved picks per player
+    const rounds: number[] = [];
+    for (let r = g.rounds[0]; r <= g.rounds[1]; r++) rounds.push(r);
+    // Parallelize all round fetches for lower first-mount latency
     const perPlayer: Record<string, { picks: number; wins: number; losses: number; eliminated: boolean }> = {};
     const results: Record<string, "W" | "L"> = {};
-    for (let r = g.rounds[0]; r <= g.rounds[1]; r++) {
-      const resPrefix = K.resPrefix(r);
-      const resRows = await kvList<"W" | "L">(resPrefix);
+    const perRound = await Promise.all(
+      rounds.map(async (r) => {
+        const resPrefix = K.resPrefix(r);
+        const reqPrefix = K.reqPrefix(g.key, r);
+        const [resRows, reqRows] = await Promise.all([
+          kvList<"W" | "L">(resPrefix),
+          kvList<{ teamId: string; status: string }>(reqPrefix),
+        ]);
+        return { r, resPrefix, reqPrefix, resRows, reqRows };
+      })
+    );
+    for (const { r, resPrefix, reqPrefix, resRows, reqRows } of perRound) {
       for (const { key, value } of resRows) {
         results[`${r}-${key.slice(resPrefix.length)}`] = value as any;
       }
-      const reqPrefix = K.reqPrefix(g.key, r);
-      const reqRows = await kvList<{ teamId: string; status: string }>(reqPrefix);
       for (const { key, value } of reqRows) {
         if (value.status !== "approved") continue;
         const pid = key.slice(reqPrefix.length);

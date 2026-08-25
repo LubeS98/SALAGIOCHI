@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, radius, fontSize } from "@/src/lib/theme";
 import { useSession } from "@/src/lib/session";
@@ -13,7 +13,6 @@ type Req = { teamId: string; status: string; sentBy?: string };
 
 export default function MoreScreen() {
   const { me, core, logout, refreshCore, decidePick, setTeamResult } = useSession();
-  const router = useRouter();
   const [screen, setScreen] = useState<"home" | "rules" | "requests" | "results" | "calendar">("home");
   const [pending, setPending] = useState<{ key: string; game: MinigameKey; round: number; playerId: string; req: Req }[]>([]);
   const [resultRound, setResultRound] = useState<number>(core?.round ?? 1);
@@ -71,7 +70,7 @@ export default function MoreScreen() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
         <Section label="ACCOUNT">
           <Row testID="profile-row" icon="person-circle" title={me?.displayName || ""} sub={`@${me?.username} · ${me?.role.toUpperCase()}`} />
-          <Row testID="logout-row" icon="log-out" title="Esci" onPress={async () => { await logout(); router.replace("/"); }} />
+          <Row testID="logout-row" icon="log-out" title="Esci" onPress={async () => { await logout(); }} />
         </Section>
         <Section label="INFO">
           <Row testID="rules-row" icon="book" title="Regole" onPress={() => setScreen("rules")} />
