@@ -509,6 +509,7 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/globe.gl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
 (function(){
 "use strict";
@@ -881,25 +882,77 @@ const CONTINENT_BORDERS = Object.keys(CONTINENTS).map(cid=>{
 // proprietario del territorio a cui appartiene.
 // ============================================================
 let COUNTRY_FEATURES = null; // features GeoJSON con properties.__tid già assegnato
-function countryCentroid(feature){
-  const bb = feature.bbox;
-  if(bb) return { lat:(bb[1]+bb[3])/2, lng:(bb[0]+bb[2])/2 };
-  // fallback: media dei vertici del primo anello
-  const g = feature.geometry;
-  const ring = g.type === "Polygon" ? g.coordinates[0] : g.coordinates[0][0];
+
+// Area approssimata (formula del "shoelace", in gradi²) di un anello:
+// serve solo per confrontare le dimensioni relative dei pezzi di un paese.
+function ringArea(ring){
+  let a = 0;
+  for(let i=0;i<ring.length;i++){
+    const [x1,y1] = ring[i], [x2,y2] = ring[(i+1)%ring.length];
+    a += x1*y2 - x2*y1;
+  }
+  return Math.abs(a)/2;
+}
+function ringCentroid(ring){
   let sLat=0, sLng=0;
   ring.forEach(([lng,lat])=>{ sLat+=lat; sLng+=lng; });
   return { lat:sLat/ring.length, lng:sLng/ring.length };
 }
+// Punto rappresentativo di un paese: prende il centro del pezzo di terra
+// PIÙ GRANDE (non il bounding box di tutto il paese). Necessario perché
+// paesi come Russia o Figi attraversano l'antimeridiano (±180°): il
+// bounding box li piazzerebbe erroneamente vicino alla longitudine 0,
+// assegnandoli al territorio Risiko sbagliato.
+function countryCentroid(feature){
+  const g = feature.geometry;
+  const rings = g.type === "Polygon" ? [g.coordinates[0]] : g.coordinates.map(poly=>poly[0]);
+  let best = rings[0], bestArea = -1;
+  rings.forEach(ring=>{
+    const a = ringArea(ring);
+    if(a > bestArea){ bestArea = a; best = ring; }
+  });
+  return ringCentroid(best);
+}
+const COUNTRY_GEOJSON_URLS = [
+  "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson",
+  "https://unpkg.com/three-globe/example/datasets/ne_110m_admin_0_countries.geojson",
+];
 async function loadCountryPolygons(){
   if(COUNTRY_FEATURES) return COUNTRY_FEATURES;
-  const res = await fetch("https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson");
-  const geo = await res.json();
-  COUNTRY_FEATURES = geo.features.filter(f=>f.properties.ISO_A2 !== "AQ"); // niente Antartide
-  COUNTRY_FEATURES.forEach(f=>{
+  let geo = null, lastErr = null;
+  for(const url of COUNTRY_GEOJSON_URLS){
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      geo = await res.json();
+      break;
+    }catch(e){ lastErr = e; }
+  }
+  if(!geo) throw lastErr || new Error("Nessuna sorgente disponibile per i confini geografici");
+  let features = geo.features.filter(f=>f.properties.ISO_A2 !== "AQ"); // niente Antartide
+  features.forEach(f=>{
     const c = countryCentroid(f);
     f.properties.__tid = nearestTerritory(c.lat, c.lng);
   });
+
+  // Unisce i confini tra paesi assegnati allo STESSO territorio Risiko:
+  // senza questo passaggio si vedono i confini di tutti i ~177 paesi reali
+  // (es. in Sud America: Brasile, Argentina, Cile, Perù, Colombia, Venezuela,
+  // Bolivia, Paraguay, Uruguay, Ecuador...) invece dei soli 4 territori
+  // Risiko. Con la dissolve restano visibili solo i confini "veri", cioè
+  // quelli tra un territorio Risiko e l'altro.
+  try{
+    if(window.turf){
+      const flat = turf.flatten(turf.featureCollection(features)); // turf.dissolve vuole solo Polygon, non MultiPolygon
+      const dissolved = turf.dissolve(flat, { propertyName: "__tid" });
+      const merged = dissolved.features.filter(f=>f.properties.__tid);
+      if(merged.length) features = merged;
+    }
+  }catch(e){
+    console.warn("Impossibile unire i confini tra territori, mostro i confini dei singoli paesi:", e);
+  }
+
+  COUNTRY_FEATURES = features;
   return COUNTRY_FEATURES;
 }
 function countryColor(feature){
@@ -1234,7 +1287,10 @@ function buildGlobe(){
   // carica i confini reali dei paesi (asincrono) e li assegna al layer poligoni
   loadCountryPolygons().then(features=>{
     if(globe) globe.polygonsData(features);
-  }).catch(err=>console.error("Impossibile caricare i confini geografici:", err));
+  }).catch(err=>{
+    console.error("Impossibile caricare i confini geografici:", err);
+    toast("Impossibile caricare i confini geografici: la mappa resta senza terre colorate.");
+  });
 
   fitGlobe();
   requestAnimationFrame(fitGlobe);
@@ -1389,7 +1445,10 @@ function renderArcs(){
 }
 
 function tooltipHtml(id){
-  const st = game.state; const t = TM[id]; const info = st.territories[id];
+  const st = game.state;
+  const t = TM[id];
+  if(!id || !t || !st || !st.territories[id]) return "";
+  const info = st.territories[id];
   const cont = CONTINENTS[t.cont];
   const owner = info?.owner; const ownerNm = owner ? playerName(owner) : "Neutrale";
   const oc = owner ? ownerColor(owner) : "#94a3b8";
