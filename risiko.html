@@ -568,6 +568,16 @@ function hexToRgba(hex, a){
   return `rgba(${r},${g},${b},${a})`;
 }
 
+// Texture "oceano" a tinta piatta (come nella mappa fisica) invece della
+// foto satellitare: rende il globo più leggibile e i confini più netti.
+const OCEAN_TEXTURE = (()=>{
+  const c = document.createElement("canvas"); c.width = 2; c.height = 2;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#587c8c";
+  ctx.fillRect(0, 0, 2, 2);
+  return c.toDataURL();
+})();
+
 function buildColorPicker(container, onPick, selected){
   container.innerHTML = "";
   PLAYER_COLORS.forEach(c=>{
@@ -862,6 +872,43 @@ const CONTINENT_BORDERS = Object.keys(CONTINENTS).map(cid=>{
   return { cont:cid, color: CONTINENTS[cid].color, points: path };
 });
 
+// ============================================================
+// CONFINI REALI DEI PAESI (poligoni GeoJSON, come nella mappa fisica)
+// I territori sono punti geografici, non poligoni: per mostrare forme
+// vere — come nella foto della plancia — carichiamo i confini reali del
+// mondo (Natural Earth 110m) e assegniamo ogni paese al territorio
+// Risiko geograficamente più vicino. Il colore del paese segue poi il
+// proprietario del territorio a cui appartiene.
+// ============================================================
+let COUNTRY_FEATURES = null; // features GeoJSON con properties.__tid già assegnato
+function countryCentroid(feature){
+  const bb = feature.bbox;
+  if(bb) return { lat:(bb[1]+bb[3])/2, lng:(bb[0]+bb[2])/2 };
+  // fallback: media dei vertici del primo anello
+  const g = feature.geometry;
+  const ring = g.type === "Polygon" ? g.coordinates[0] : g.coordinates[0][0];
+  let sLat=0, sLng=0;
+  ring.forEach(([lng,lat])=>{ sLat+=lat; sLng+=lng; });
+  return { lat:sLat/ring.length, lng:sLng/ring.length };
+}
+async function loadCountryPolygons(){
+  if(COUNTRY_FEATURES) return COUNTRY_FEATURES;
+  const res = await fetch("https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson");
+  const geo = await res.json();
+  COUNTRY_FEATURES = geo.features.filter(f=>f.properties.ISO_A2 !== "AQ"); // niente Antartide
+  COUNTRY_FEATURES.forEach(f=>{
+    const c = countryCentroid(f);
+    f.properties.__tid = nearestTerritory(c.lat, c.lng);
+  });
+  return COUNTRY_FEATURES;
+}
+function countryColor(feature){
+  const tid = feature.properties.__tid;
+  if(!tid || !game || !game.state || !game.state.territories) return "#93a3b8";
+  const info = game.state.territories[tid];
+  return info?.owner ? ownerColor(info.owner) : "#93a3b8";
+}
+
 const SYMBOLS = ["fanteria","cavalleria","artiglieria"];
 function buildDeck(){
   const deck = TERRITORIES.map((t,i)=>({ territory:t.id, symbol: SYMBOLS[i % 3] }));
@@ -1108,7 +1155,6 @@ function ownerColor(playerId){ const p = players.find(pl=>pl.id===playerId); ret
 let globe = null;
 let hoveredId = null;
 let autoRotateTimer = null;
-let BASE_ARCS = [];
 
 function greatCircleDeg(lat1,lng1,lat2,lng2){
   const toR = x=>x*Math.PI/180;
@@ -1122,13 +1168,28 @@ function buildGlobe(){
   const el = $("globeViz");
   globe = Globe()(el)
     .backgroundColor("rgba(0,0,0,0)")
-    .globeImageUrl("//unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
-    .bumpImageUrl("//unpkg.com/three-globe/example/img/earth-topology.png")
+    .globeImageUrl(OCEAN_TEXTURE)
     .showAtmosphere(true)
-    .atmosphereColor("#7dd3fc")
-    .atmosphereAltitude(0.22)
+    .atmosphereColor("#bfe3ff")
+    .atmosphereAltitude(0.18)
     .onGlobeReady(()=>{ const l=$("globeLoading"); if(l) l.style.display="none"; fitGlobe(); })
-    // labels = territori
+    // confini reali dei paesi (poligoni GeoJSON), colorati per proprietario:
+    // è la vera "forma dei territori" richiesta, non un'approssimazione
+    .polygonsData([])
+    .polygonCapColor(f=>countryColor(f))
+    .polygonSideColor(()=>"rgba(10,18,32,0.35)")
+    .polygonStrokeColor(()=>"#0b1220")
+    .polygonAltitude(0.006)
+    .polygonsTransitionDuration(0)
+    .polygonLabel(f=>tooltipHtml(f.properties.__tid))
+    .onPolygonHover(f=>{
+      const id = f ? f.properties.__tid : null;
+      document.body.style.cursor = f ? "pointer" : "";
+      if(id === hoveredId) return;
+      hoveredId = id;
+    })
+    .onPolygonClick(f=>{ const tid = f.properties.__tid; if(tid) selectTerritory(tid); })
+    // labels = territori (numero armate)
     .labelsData([])
     .labelLat(d=>d.lat).labelLng(d=>d.lng)
     .labelText(d=>d.text)
@@ -1136,14 +1197,13 @@ function buildGlobe(){
     .labelDotRadius(d=>d.dot)
     .labelColor(d=>d.color)
     .labelResolution(2)
-    .labelAltitude(0.012)
+    .labelAltitude(0.014)
     .labelLabel(d=>tooltipHtml(d.id))
     .onLabelHover(d=>{
       const id = d ? d.id : null;
       document.body.style.cursor = d ? "pointer" : "";
-      if(id === hoveredId) return; // evita rebuild archi ripetuti durante il semplice movimento del mouse
+      if(id === hoveredId) return;
       hoveredId = id;
-      renderArcs();
     })
     .onLabelClick(d=>{ if(d) selectTerritory(d.id); })
     // click in un punto qualsiasi del globo: seleziona il territorio più
@@ -1153,8 +1213,7 @@ function buildGlobe(){
       const tid = nearestTerritory(coords.lat, coords.lng);
       if(tid) selectTerritory(tid);
     })
-    // archi — resi più contrastati per restare leggibili sopra la texture
-    // realistica (terra/mare) invece che su uno sfondo scuro uniforme
+    // archi — solo per le azioni di gioco (nessuna rete decorativa)
     .arcsData([])
     .arcColor(d=>d.color).arcStroke(d=>d.stroke).arcAltitude(d=>d.alt)
     .arcDashLength(d=>d.dashLen).arcDashGap(d=>d.dashGap).arcDashInitialGap(()=>Math.random()).arcDashAnimateTime(d=>d.anim)
@@ -1163,14 +1222,19 @@ function buildGlobe(){
     .ringsData([])
     .ringColor(d=>()=>d.color)
     .ringMaxRadius(d=>d.max).ringPropagationSpeed(2).ringRepeatPeriod(d=>d.period)
-    // confini dei continenti (contorno del guscio convesso dei territori)
+    // confini dei continenti (contorno sottile, non pulsante, per restare "chiaro")
     .pathsData(CONTINENT_BORDERS)
     .pathPoints(d=>d.points)
     .pathPointLat(p=>p[0]).pathPointLng(p=>p[1])
-    .pathColor(d=>[hexToRgba(d.color,0.85), hexToRgba(d.color,0.85)])
-    .pathStroke(1.6)
-    .pathDashLength(0.045).pathDashGap(0.02).pathDashAnimateTime(0)
+    .pathColor(d=>[hexToRgba(d.color,0.55), hexToRgba(d.color,0.55)])
+    .pathStroke(1.1)
+    .pathDashLength(1).pathDashGap(0).pathDashAnimateTime(0)
     .pathTransitionDuration(0);
+
+  // carica i confini reali dei paesi (asincrono) e li assegna al layer poligoni
+  loadCountryPolygons().then(features=>{
+    if(globe) globe.polygonsData(features);
+  }).catch(err=>console.error("Impossibile caricare i confini geografici:", err));
 
   fitGlobe();
   requestAnimationFrame(fitGlobe);
@@ -1204,14 +1268,6 @@ function buildGlobe(){
 
   globe.pointOfView({ lat:22, lng:10, altitude:1.85 }, 0);
 
-  // archi base (adiacenze) — rete più contrastata per restare ben visibile
-  // anche sopra la texture realistica di terra/mare
-  BASE_ARCS = ADJ_PAIRS.map(([a,b])=>({
-    startLat:TM[a].lat, startLng:TM[a].lng, endLat:TM[b].lat, endLng:TM[b].lng,
-    color:["rgba(255,255,255,0.62)","rgba(255,255,255,0.62)"], stroke:0.5, alt:arcAltFor(a,b),
-    dashLen:1, dashGap:0, anim:0,
-  }));
-
   // legenda continenti
   const legend = $("continentLegend"); legend.innerHTML = "";
   Object.entries(CONTINENTS).forEach(([id,c])=>{
@@ -1233,11 +1289,19 @@ function fitGlobe(){
   globe.width(w).height(h);
 }
 
-let lastLabelsSig = null, lastRingsSig = null;
+let lastLabelsSig = null, lastRingsSig = null, lastCountryOwnerSig = null;
 
 function renderGlobe(){
   const st = game.state;
   if(!st || !st.territories || !globe) return;
+
+  // confini dei paesi: ricolora solo quando cambia davvero un proprietario
+  // (non ad ogni variazione di armate)
+  const countryOwnerSig = TERRITORIES.map(t=> st.territories[t.id]?.owner||"").join(",");
+  if(countryOwnerSig !== lastCountryOwnerSig && COUNTRY_FEATURES){
+    globe.polygonsData([...COUNTRY_FEATURES]);
+    lastCountryOwnerSig = countryOwnerSig;
+  }
 
   // animazioni di cambiamento (floater armate / conquista)
   TERRITORIES.forEach(t=>{
@@ -1288,42 +1352,18 @@ function renderGlobe(){
 }
 
 let lastArcsSig = null;
-let FRONTIER_PAIRS = null; // cache delle coppie adiacenti con proprietari diversi (ricalcolata solo se cambia)
 function renderArcs(){
   if(!globe || !game) return;
   const st = game.state;
   if(!st || !st.territories) return;
 
-  // Firma leggera dello stato rilevante agli archi: se non cambia nulla di
-  // utile (stesso hover, stessa selezione, stessa fase, stessi proprietari)
-  // evitiamo di ricreare l'array e richiamare globe.arcsData(), che è
-  // l'operazione più costosa durante il semplice passaggio del mouse.
-  const ownerSig = ADJ_PAIRS.length ? TERRITORIES.map(t=>st.territories[t.id]?.owner||"").join(",") : "";
-  const arcsSig = hoveredId+"|"+selection.from+"|"+selection.to+"|"+(st.phase||"")+"|"+(st.fortifyUsed?1:0)+"|"+ownerSig;
+  // Firma leggera: ricostruiamo gli archi solo se selezione/fase cambiano
+  // davvero (niente più rete di adiacenza permanente da ricalcolare).
+  const arcsSig = selection.from+"|"+selection.to+"|"+(st.phase||"")+"|"+(st.fortifyUsed?1:0);
   if(arcsSig === lastArcsSig) return;
   lastArcsSig = arcsSig;
 
-  const arcs = [...BASE_ARCS];
-
-  // "linee del fronte": confini tra territori adiacenti di proprietari
-  // diversi, marcati bene in rosso acceso — è qui che si combatte davvero.
-  ADJ_PAIRS.forEach(([a,b])=>{
-    const oa = st.territories[a]?.owner, ob = st.territories[b]?.owner;
-    if(oa && ob && oa !== ob){
-      arcs.push({ startLat:TM[a].lat, startLng:TM[a].lng, endLat:TM[b].lat, endLng:TM[b].lng,
-        color:["rgba(251,90,114,0.85)","rgba(251,90,114,0.85)"], stroke:0.6, alt:arcAltFor(a,b)*0.6,
-        dashLen:0.55, dashGap:0.25, anim:0 });
-    }
-  });
-
-  // evidenzia i collegamenti del territorio sotto il mouse
-  if(hoveredId){
-    ADJACENCY[hoveredId].forEach(n=>{
-      arcs.push({ startLat:TM[hoveredId].lat, startLng:TM[hoveredId].lng, endLat:TM[n].lat, endLng:TM[n].lng,
-        color:["rgba(34,211,238,0.95)","rgba(45,212,191,0.9)"], stroke:0.7, alt:arcAltFor(hoveredId,n),
-        dashLen:0.4, dashGap:0.18, anim:2600 });
-    });
-  }
+  const arcs = [];
 
   // mosse possibili durante attacco / fortificazione
   if(selection.from && isMyTurn()){
