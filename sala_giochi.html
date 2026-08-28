@@ -428,7 +428,27 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
 @keyframes floatUp{ 0%{opacity:0; transform:translate(-50%,-30%)} 20%{opacity:1} 100%{opacity:0; transform:translate(-50%,-160%)} }
 
 /* globe.gl tooltip */
+/* numero di armate sul globo: stessa resa della mappa 2D — cifra nera con
+   alone bianco, leggibile su qualunque colore di proprietario */
+.globe-armies{
+  font-family:var(--font-mono); font-weight:700; font-size:13px; line-height:1;
+  color:#08121f; user-select:none; white-space:nowrap;
+  text-shadow:
+     0    -2px 0 rgba(255,255,255,.92),  0     2px 0 rgba(255,255,255,.92),
+    -2px   0   0 rgba(255,255,255,.92),  2px   0   0 rgba(255,255,255,.92),
+    -1.4px -1.4px 0 rgba(255,255,255,.92), 1.4px -1.4px 0 rgba(255,255,255,.92),
+    -1.4px  1.4px 0 rgba(255,255,255,.92), 1.4px  1.4px 0 rgba(255,255,255,.92);
+}
+@media(max-width:640px){ .globe-armies{ font-size:12px; } }
+
 .scene-tooltip{ pointer-events:none; }
+/* tooltip che segue il mouse sulla sagoma del territorio */
+#globeTooltip{
+  position:absolute; z-index:45; display:none; pointer-events:none;
+  max-width:290px; filter:drop-shadow(0 12px 26px rgba(0,0,0,.6));
+  animation:ttIn .12s ease-out;
+}
+@keyframes ttIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
 .tt{ font-family:var(--font-body); background:linear-gradient(180deg, rgba(11,20,38,.97), rgba(6,11,22,.97));
   border:1px solid var(--border-strong); border-radius:12px; padding:12px 14px; min-width:210px;
   box-shadow:0 20px 50px -18px rgba(0,0,0,.9), var(--glow-cyan); color:var(--text); }
@@ -511,7 +531,7 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
 }
 @media(max-width:1050px){ .game-layout{ grid-template-columns:1fr; } }
 
-.board-panel{ padding:16px; }
+.board-panel{ padding:16px; position:relative; }
 .map-header{ display:flex; justify-content:space-between; align-items:center; padding:6px 10px 14px; gap:12px; }
 
 /* tavola */
@@ -604,6 +624,67 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
   z-index:-1;
 }
 .token:hover{ transform:translateY(-2px) scale(1.12); }
+
+/* ============================================================
+   OVERLAY CENTRALE — lancio dei dadi e spostamento
+   Copre il tabellone (non tutto lo schermo) così resta chiaro
+   a chi appartiene il turno e cosa sta succedendo.
+   ============================================================ */
+.dice-overlay{ position:absolute; inset:0; z-index:40; display:none;
+  align-items:center; justify-content:center; padding:16px;
+  background:rgba(4,8,6,.62); backdrop-filter:blur(3px); border-radius:var(--radius-lg);
+  animation:fadeIn .18s ease; }
+.dice-card{ text-align:center; padding:22px 28px; border-radius:18px;
+  background:linear-gradient(180deg, rgba(20,32,20,.96), rgba(8,14,8,.98));
+  border:1px solid rgba(232,200,119,.35);
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.4); }
+.dice-who{ font-family:var(--font-mono); font-size:.72rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--gold); margin-bottom:14px; display:flex; align-items:center; justify-content:center; gap:8px; }
+.dice-who .dot{ width:11px; height:11px; border-radius:50%; box-shadow:0 0 8px currentColor; }
+.dice-pair{ display:flex; gap:16px; justify-content:center; }
+.die{ width:74px; height:74px; border-radius:14px; background:linear-gradient(160deg,#fdfbf5,#e9e4d6);
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+  padding:11px; box-shadow:0 8px 20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.6); }
+.die .pip{ width:12px; height:12px; border-radius:50%; margin:auto; background:radial-gradient(circle at 34% 30%, #4a3524, #1c130a); opacity:0; }
+.die .pip.on{ opacity:1; }
+.die.rolling{ animation:diceShake .09s linear infinite; }
+@keyframes diceShake{ 0%{transform:rotate(0) scale(1)} 25%{transform:rotate(-9deg) scale(1.03)} 75%{transform:rotate(9deg) scale(1.03)} 100%{transform:rotate(0) scale(1)} }
+.die.settle{ animation:diceSettle .34s cubic-bezier(.2,1.5,.4,1); }
+@keyframes diceSettle{ 0%{transform:scale(1.35) rotate(14deg)} 60%{transform:scale(.92) rotate(-4deg)} 100%{transform:scale(1) rotate(0)} }
+.dice-total{ margin-top:16px; font-family:var(--font-display); font-size:1.5rem; color:#fff; min-height:1.6em; }
+.dice-sub{ margin-top:6px; font-size:.82rem; color:rgba(255,255,255,.72); min-height:1.4em; }
+.dice-track{ margin-top:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
+.dice-track .step{ width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.18); transition:background .12s, transform .12s; }
+.dice-track .step.done{ background:var(--gold); box-shadow:0 0 8px var(--gold); transform:scale(1.15); }
+
+/* traccia il percorso appena calpestato sul tabellone vero e proprio */
+.board-cell.path-lit{ box-shadow:0 0 0 2px var(--gold), 0 0 16px rgba(232,200,119,.55) !important; z-index:6; }
+.token.token-move{ width:26px; height:26px; z-index:20;
+  box-shadow: inset 0 -3px 4px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.5),
+    0 4px 10px rgba(0,0,0,.65), 0 0 18px 4px color-mix(in srgb, var(--pc) 80%, transparent); }
+
+/* ============================================================
+   ASTA — finestra centrale
+   ============================================================ */
+.auction-modal .modal{ }
+.auction-lot{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px;
+  background:rgba(4,8,18,.06); border:1px solid var(--border); margin:10px 0 14px; }
+.auction-lot .swatch{ width:14px; height:44px; border-radius:4px; flex:none; }
+.auction-lot .nm{ font-weight:700; font-size:1.02rem; }
+.auction-lot .sub{ font-size:.74rem; color:var(--muted); }
+.auction-bid-now{ text-align:center; padding:14px; border-radius:12px; margin-bottom:12px;
+  background:rgba(232,200,119,.12); border:1px solid rgba(232,200,119,.3); }
+.auction-bid-now .amt{ font-family:var(--font-mono); font-size:2rem; font-weight:800; color:var(--gold-deep); }
+.auction-bid-now .who{ font-size:.8rem; color:var(--muted); margin-top:2px; }
+.auction-parties{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+.auction-chip{ display:flex; align-items:center; gap:6px; font-size:.76rem; padding:5px 10px; border-radius:999px;
+  border:1px solid var(--border); background:rgba(4,8,18,.05); }
+.auction-chip.turn{ border-color:var(--gold-deep); background:rgba(232,200,119,.18); font-weight:700; }
+.auction-chip.out{ opacity:.42; text-decoration:line-through; }
+.auction-chip .dot{ width:9px; height:9px; border-radius:50%; }
+.auction-wait{ text-align:center; font-size:.86rem; color:var(--muted); padding:8px 0; }
+
+
 
 /* pannello laterale monopoly */
 .side-panel{ display:flex; flex-direction:column; gap:16px; }
@@ -1124,6 +1205,18 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
       <div class="board-wrap">
         <div class="board-grid" id="boardGrid"></div>
       </div>
+      <div class="dice-overlay" id="diceOverlay">
+        <div class="dice-card">
+          <div class="dice-who" id="diceWho"><span class="dot"></span><span>Marco tira i dadi</span></div>
+          <div class="dice-pair">
+            <div class="die" id="die1"></div>
+            <div class="die" id="die2"></div>
+          </div>
+          <div class="dice-total" id="diceTotal"></div>
+          <div class="dice-sub" id="diceSub"></div>
+          <div class="dice-track" id="diceTrack"></div>
+        </div>
+      </div>
     </div>
 
     <div class="side-panel">
@@ -1230,6 +1323,15 @@ footer{ text-align:center; color:var(--dim); margin-top:50px; font-size:.85rem; 
     <h2>Proponi uno scambio</h2>
     <div class="text-sm" style="color:var(--muted)">Seleziona proprietà e denaro da entrambi i lati. Le proprietà con case non sono scambiabili.</div>
     <div id="tradeModalBody"></div>
+  </div>
+</div>
+
+<!-- modale centrale dell'asta: si apre da sé a tutti quando parte un'asta -->
+<div class="modal-backdrop" id="auctionModal" style="display:none;">
+  <div class="modal parchment auction-modal" style="max-width:440px;">
+    <button class="close-x" id="auctionModalClose" title="Riduci a icona (l'asta continua nel pannello laterale)">&times;</button>
+    <h2>🔨 Asta</h2>
+    <div id="auctionModalBody"></div>
   </div>
 </div>
 
@@ -1451,13 +1553,19 @@ function hexToRgba(hex, a){
   return `rgba(${r},${g},${b},${a})`;
 }
 
-// Texture "oceano" a tinta piatta (come nella mappa fisica) invece della
-// foto satellitare: rende il globo più leggibile e i confini più netti.
+// Texture "oceano" con una lieve profondità (più scura ai poli, più chiara
+// all'equatore) invece di un singolo colore piatto: aiuta la sfera a non
+// sembrare un disco e resta comunque a tinta unita, senza foto satellitare
+// che disturberebbe la lettura dei confini.
 const OCEAN_TEXTURE = (()=>{
-  const c = document.createElement("canvas"); c.width = 2; c.height = 2;
+  const c = document.createElement("canvas"); c.width = 2; c.height = 128;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#587c8c";
-  ctx.fillRect(0, 0, 2, 2);
+  const grad = ctx.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0,    "#3f5d70");
+  grad.addColorStop(0.5,  "#5f8ba0");
+  grad.addColorStop(1,    "#3f5d70");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 2, 128);
   return c.toDataURL();
 })();
 
@@ -1752,41 +1860,6 @@ const ADJ_PAIRS = (()=>{
   }
   return out;
 })();
-
-// ============================================================
-// CONFINI DEI CONTINENTI
-// I territori sono punti (non poligoni reali), quindi calcoliamo il
-// "guscio convesso" (convex hull) dei punti di ogni continente e lo
-// disegniamo come contorno chiuso: è il modo più chiaro per marcare
-// visivamente dove finisce/inizia un continente sul globo.
-// ============================================================
-function convexHull(points){ // points: [[lng,lat], ...] -> ritorna hull in senso antiorario
-  if(points.length < 3) return points.slice();
-  const pts = [...points].sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
-  const cross = (o,a,b)=> (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
-  const lower = [];
-  for(const p of pts){ while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop(); lower.push(p); }
-  const upper = [];
-  for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop(); upper.push(p); }
-  lower.pop(); upper.pop();
-  return lower.concat(upper);
-}
-
-// Espande leggermente il guscio verso l'esterno (rispetto al proprio
-// centroide) così il confine avvolge i territori invece di toccarli.
-function inflateHull(hull, factor){
-  const cx = hull.reduce((s,p)=>s+p[0],0)/hull.length;
-  const cy = hull.reduce((s,p)=>s+p[1],0)/hull.length;
-  return hull.map(([x,y])=>[ cx + (x-cx)*factor, cy + (y-cy)*factor ]);
-}
-
-const CONTINENT_BORDERS = Object.keys(CONTINENTS).map(cid=>{
-  const pts = TERRITORIES.filter(t=>t.cont===cid).map(t=>[t.lng, t.lat]);
-  const hull = inflateHull(convexHull(pts), 1.18);
-  const path = hull.map(([lng,lat])=>[lat,lng]);
-  path.push(path[0]); // chiude il contorno
-  return { cont:cid, color: CONTINENTS[cid].color, kind:"continent", points: path };
-});
 
 // ============================================================
 // ROTTE MARITTIME (collegamenti "via mare" fra territori non confinanti)
@@ -2393,7 +2466,28 @@ function subscribe(){
     .subscribe();
 }
 
+// Invariante del gioco: un territorio con un proprietario ha SEMPRE almeno
+// un'armata. Uno stato che viola questa regola è illegale (rende il
+// territorio impossibile da difendere e mostra uno "0" sulla mappa), quindi
+// viene corretto qui prima di salvare, qualunque sia il percorso che lo ha
+// prodotto. Se scatta, è il segnale di un bug a monte: lo segnaliamo in
+// console invece di nasconderlo.
+function enforceArmyMinimum(st){
+  if(!st || !st.territories) return st;
+  Object.keys(st.territories).forEach(tid=>{
+    const info = st.territories[tid];
+    if(!info) return;
+    if(info.owner && (!(info.armies > 0))){
+      console.warn(`[stato incoerente] ${tid} risultava di ${info.owner} con ${info.armies} armate: riportato a 1.`);
+      info.armies = 1;
+    }
+    if(!info.owner) info.armies = info.armies || 0;
+  });
+  return st;
+}
+
 async function saveState(newState, extra={}){
+  enforceArmyMinimum(newState);
   game.state = newState;
   if(DEMO){ render(); return; }
   const { error } = await supabase.from("games").update({ state:newState, ...extra }).eq("id", gameId);
@@ -2552,57 +2646,244 @@ function greatCircleDeg(lat1,lng1,lat2,lng2){
 }
 function arcAltFor(a,b){ const d = greatCircleDeg(TM[a].lat,TM[a].lng,TM[b].lat,TM[b].lng); return 0.07 + Math.min(d/180,1)*0.34; }
 
+// Ritocca le luci di default di globe.gl (una ambientale + una direzionale
+// dall'alto) senza aggiungere una dipendenza a three.js: basta modificare
+// le istanze già presenti nella scena. Una luce leggermente calda e
+// inclinata di lato dà alla sfera un vero senso di volume — l'emisfero in
+// ombra si percepisce, invece del look piatto "disco colorato" di prima.
+function tuneGlobeLighting(){
+  if(!globe) return;
+  const lights = globe.lights ? globe.lights() : [];
+  lights.forEach(l=>{
+    if(l.isAmbientLight){
+      l.intensity = 0.66;
+      if(l.color && l.color.set) l.color.set(0xaebfd6);
+    } else if(l.isDirectionalLight){
+      l.intensity = 1.05;
+      if(l.color && l.color.set) l.color.set(0xfff3e0);
+      if(l.position && l.position.set) l.position.set(-0.65, 0.55, 1);
+    }
+  });
+}
+
+// ============================================================
+// TEXTURE DEI TERRITORI
+// Gli stessi confini usati dalla mappa 2D vengono dipinti su una texture
+// equirettangolare (lng -180..180 → x, lat 90..-90 → y) applicata alla
+// sfera. Rispetto ai poligoni 3D estrusi questo elimina alla radice buchi,
+// denti a zigzag e linee spurie: il disegno avviene in 2D, dove i confini
+// condivisi coincidono esattamente, e la sfera si limita a mostrarlo.
+// ============================================================
+const TEX_W = 4096, TEX_H = 2048;
+let territoryCanvas = null, territoryTexture = null;
+
+function paintTerritoryCanvas(){
+  if(!territoryCanvas){
+    territoryCanvas = document.createElement("canvas");
+    territoryCanvas.width = TEX_W; territoryCanvas.height = TEX_H;
+  }
+  const ctx = territoryCanvas.getContext("2d");
+  if(!ctx) return null;
+
+  // oceano: stessa lieve profondità della versione precedente
+  const grad = ctx.createLinearGradient(0, 0, 0, TEX_H);
+  grad.addColorStop(0,   "#3f5d70");
+  grad.addColorStop(0.5, "#5f8ba0");
+  grad.addColorStop(1,   "#3f5d70");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+  const X = lng => (lng + 180) / 360 * TEX_W;
+  const Y = lat => (90 - lat) / 180 * TEX_H;
+
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  Object.keys(TERRITORY_POLYGONS).forEach(tid=>{
+    const geom = TERRITORY_POLYGONS[tid];
+    const parts = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    ctx.beginPath();
+    parts.forEach(rings=>{
+      rings.forEach(ring=>{
+        ring.forEach((pt, i)=>{
+          const x = X(pt[0]), y = Y(pt[1]);
+          if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+      });
+    });
+    // "evenodd" così gli anelli interni restano buchi veri (laghi, enclavi)
+    ctx.fillStyle = territoryColor(tid);
+    ctx.fill("evenodd");
+    ctx.strokeStyle = "rgba(6,12,22,0.92)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  });
+
+  return territoryCanvas;
+}
+
+// Applica il canvas alla sfera. Se il materiale del globo è già pronto si
+// riusa sempre la STESSA texture, ridipingendo il canvas e segnalando
+// l'aggiornamento: nessuna ricodifica dell'immagine, quindi il cambio di
+// proprietario di un territorio è immediato anche a metà partita.
+function applyTerritoryTexture(){
+  if(!globe) return;
+  const canvas = paintTerritoryCanvas();
+  if(!canvas) return;
+
+  let mat = null;
+  try{ mat = globe.globeMaterial ? globe.globeMaterial() : null; }catch(e){ mat = null; }
+
+  if(mat && mat.map && typeof mat.map.constructor === "function"){
+    if(!territoryTexture){
+      try{
+        const TextureCtor = mat.map.constructor;
+        territoryTexture = new TextureCtor(canvas);
+        // eredita dal materiale originale spazio colore e filtri, così i
+        // colori non risultano slavati o troppo scuri
+        ["colorSpace","encoding","wrapS","wrapT","minFilter","magFilter","anisotropy"]
+          .forEach(k=>{ if(mat.map[k] !== undefined) territoryTexture[k] = mat.map[k]; });
+      }catch(e){ territoryTexture = null; }
+    }
+    if(territoryTexture){
+      territoryTexture.needsUpdate = true;
+      if(mat.map !== territoryTexture){ mat.map = territoryTexture; mat.needsUpdate = true; }
+      return;
+    }
+  }
+  // ripiego: se il materiale non è ancora accessibile, si passa dall'URL
+  try{ globe.globeImageUrl(canvas.toDataURL()); }catch(e){}
+}
+
+// ============================================================
+// TOOLTIP AL PASSAGGIO DEL MOUSE
+// I territori non sono più oggetti 3D, quindi il tooltip non può arrivare
+// dalla libreria: si converte la posizione del mouse in coordinate
+// geografiche e si guarda dentro quale sagoma cade. Così la scheda compare
+// su TUTTA l'area del territorio, non solo sul puntino delle armate.
+// ============================================================
+function wireGlobeTooltip(){
+  if(wireGlobeTooltip._done) return;
+  const el = $("globeViz");
+  const stage = document.querySelector(".globe-stage");
+  if(!el || !stage || !globe) return;
+
+  // se la versione della libreria non sa convertire schermo → coordinate,
+  // si torna al tooltip classico sul puntino: meglio quello che niente
+  if(typeof globe.toGlobeCoords !== "function"){
+    try{ globe.labelLabel(d=>tooltipHtml(d.id)); }catch(e){}
+    wireGlobeTooltip._done = true;
+    return;
+  }
+  wireGlobeTooltip._done = true;
+
+  const tip = document.createElement("div");
+  tip.id = "globeTooltip";
+  stage.appendChild(tip);
+
+  let pending = null, frame = 0;
+
+  const hide = ()=>{
+    tip.style.display = "none";
+    el.style.cursor = "";
+    if(hoveredId){ hoveredId = null; renderArcs(); }
+  };
+
+  const update = ()=>{
+    frame = 0;
+    if(!pending) return;
+    const { x, y, cx, cy } = pending;
+
+    let tid = null;
+    try{
+      const c = globe.toGlobeCoords(x, y);
+      if(c) tid = territoryAt(c.lat, c.lng);
+    }catch(e){ tid = null; }
+
+    if(tid !== hoveredId){ hoveredId = tid; renderArcs(); }
+
+    if(!tid || !game || !game.state || !game.state.territories){
+      tip.style.display = "none"; el.style.cursor = "";
+      return;
+    }
+    tip.innerHTML = tooltipHtml(tid);
+    tip.style.display = "block";
+    el.style.cursor = "pointer";
+
+    // resta dentro il riquadro del globo, scavalcando il cursore se serve
+    const r = stage.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = cx - r.left + 18, top = cy - r.top + 18;
+    if(left + tw > r.width - 8)  left = Math.max(8, cx - r.left - tw - 18);
+    if(top + th > r.height - 8)  top  = Math.max(8, cy - r.top - th - 18);
+    tip.style.left = left + "px";
+    tip.style.top  = top + "px";
+  };
+
+  el.addEventListener("mousemove", (e)=>{
+    const r = el.getBoundingClientRect();
+    pending = { x: e.clientX - r.left, y: e.clientY - r.top, cx: e.clientX, cy: e.clientY };
+    if(!frame) frame = requestAnimationFrame(update);   // al massimo un calcolo per fotogramma
+  });
+  el.addEventListener("mouseleave", ()=>{ pending = null; hide(); });
+  // durante la rotazione il tooltip darebbe fastidio
+  el.addEventListener("pointerdown", ()=>{ pending = null; tip.style.display = "none"; });
+}
+
 function buildGlobe(){
   const el = $("globeViz");
-  globe = Globe()(el)
+  globe = Globe({ rendererConfig:{ antialias:true, alpha:true, precision:"highp" } })(el)
     .backgroundColor("rgba(0,0,0,0)")
     .globeImageUrl(OCEAN_TEXTURE)
     .showAtmosphere(true)
     .atmosphereColor("#bfe3ff")
-    .atmosphereAltitude(0.18)
-    .onGlobeReady(()=>{ const l=$("globeLoading"); if(l) l.style.display="none"; fitGlobe(); })
-    // confini reali dei territori (poligoni pre-uniti, uno per territorio):
-    // è la vera "forma dei territori" richiesta, con il vero contorno nero
-    // fra territori — non più un'approssimazione a livello di singolo paese
-    .polygonsData(TERRITORY_FEATURES)
-    .polygonCapColor(f=>territoryColor(f.properties.__tid))
-    .polygonSideColor(()=>"rgba(10,18,32,0.25)")
-    .polygonStrokeColor(()=>"#0a0f18")
-    .polygonAltitude(0.006)
-    .polygonsTransitionDuration(0)
-    .polygonLabel(f=>tooltipHtml(f.properties.__tid))
-    .onPolygonHover(f=>{
-      const id = f ? f.properties.__tid : null;
-      document.body.style.cursor = f ? "pointer" : "";
-      if(id === hoveredId) return;
-      hoveredId = id;
+    .atmosphereAltitude(0.16)
+    .onGlobeReady(()=>{
+      const l=$("globeLoading"); if(l) l.style.display="none";
+      fitGlobe(); tuneGlobeLighting(); applyTerritoryTexture(); wireGlobeTooltip();
     })
-    .onPolygonClick(f=>{ const tid = f.properties.__tid; if(tid) selectTerritory(tid); })
-    // labels = territori (numero armate)
-    .labelsData([])
-    .labelLat(d=>d.lat).labelLng(d=>d.lng)
-    .labelText(d=>d.text)
-    .labelSize(d=>d.size)
-    .labelDotRadius(d=>d.dot)
-    .labelColor(d=>d.color)
-    .labelResolution(2)
-    .labelAltitude(0.014)
-    .labelLabel(d=>tooltipHtml(d.id))
-    .onLabelHover(d=>{
-      const id = d ? d.id : null;
-      document.body.style.cursor = d ? "pointer" : "";
-      if(id === hoveredId) return;
-      hoveredId = id;
+    // I territori NON sono più un layer di poligoni 3D estrusi.
+    // Quel layer (three-globe) costruisce per ogni territorio una "calotta"
+    // triangolata e piegata sulla sfera: sulle forme grandi e frastagliate
+    // produceva buchi fra territori confinanti, denti a zigzag lungo i bordi
+    // e segmenti neri spuri là dove la triangolazione sbagliava. È un limite
+    // noto della libreria, non dei nostri confini.
+    // Ora le stesse identiche geometrie vengono DIPINTE su una texture
+    // equirettangolare applicata alla sfera (vedi paintTerritoryCanvas):
+    // il disegno è 2D, quindi i confini combaciano al pixel, non esistono
+    // giunzioni da triangolare e i bordi restano netti a ogni zoom.
+    // Numero di armate: elementi HTML ancorati al territorio, non più testo
+    // 3D. Il layer "labels" di globe.gl colora numero e puntino con lo stesso
+    // colore e non permette contorni, quindi il numero risultava chiaro su
+    // fondo chiaro e poco leggibile. Con l'HTML si replica esattamente la
+    // resa della mappa 2D: cifra nera con alone bianco.
+    // La libreria nasconde da sola gli elementi che finiscono dietro il globo.
+    .htmlElementsData([])
+    .htmlLat(d=>d.lat).htmlLng(d=>d.lng)
+    .htmlAltitude(0.02)
+    .htmlTransitionDuration(0)
+    .htmlElement(d=>{
+      const badge = document.createElement("div");
+      badge.className = "globe-armies";
+      badge.textContent = d.text;
+      badge.style.pointerEvents = "none";   // non deve rubare hover e click al globo
+      return badge;
     })
-    .onLabelClick(d=>{ if(d) selectTerritory(d.id); })
     // Click sulla superficie del globo: se è vicino a un territorio lo
     // seleziona (non serve colpire il puntino esatto); se invece è in mezzo
     // al mare, chiude la scheda informazioni.
     .onGlobeClick(coords=>{
       if(!coords) return;
-      const tid = nearestTerritory(coords.lat, coords.lng);
-      const far = !tid || greatCircleDeg(coords.lat, coords.lng, TM[tid].lat, TM[tid].lng) > 13;
-      if(far){ hideTerritoryInfo(); return; }
+      // prima si guarda dentro quale territorio è caduto il click...
+      let tid = territoryAt(coords.lat, coords.lng);
+      if(!tid){
+        // ...e solo se è finito in mare si prende il più vicino, purché
+        // sia a portata: altrimenti il click chiude la scheda.
+        const near = nearestTerritory(coords.lat, coords.lng);
+        if(near && greatCircleDeg(coords.lat, coords.lng, TM[near].lat, TM[near].lng) <= 8) tid = near;
+      }
+      if(!tid){ hideTerritoryInfo(); return; }
       selectTerritory(tid);
     })
     // archi — solo per le azioni di gioco (nessuna rete decorativa)
@@ -2614,17 +2895,18 @@ function buildGlobe(){
     .ringsData([])
     .ringColor(d=>()=>d.color)
     .ringMaxRadius(d=>d.max).ringPropagationSpeed(2).ringRepeatPeriod(d=>d.period)
-    // confini dei continenti (contorno solido) + rotte marittime (tratteggiate,
-    // SOLO le coppie non confinanti via terra — vedi SEA_ROUTES sopra)
-    .pathsData([...CONTINENT_BORDERS, ...SEA_ROUTE_PATHS])
+    // Solo rotte marittime (tratteggiate, SOLO le coppie non confinanti via
+    // terra — vedi SEA_ROUTES sopra). I contorni dei continenti sono stati
+    // rimossi: erano linee curve sopra la mappa che si confondevano con le
+    // rotte, rendendo ambiguo quali collegamenti fossero davvero percorribili.
+    // I continenti restano leggibili dai colori dei territori e dal pannello.
+    .pathsData([...SEA_ROUTE_PATHS])
     .pathPoints(d=>d.points)
     .pathPointLat(p=>p[0]).pathPointLng(p=>p[1])
-    .pathColor(d=> d.kind==="searoute"
-      ? ["rgba(232,200,119,0.8)","rgba(232,200,119,0.8)"]
-      : [hexToRgba(d.color,0.55), hexToRgba(d.color,0.55)])
-    .pathStroke(d=> d.kind==="searoute" ? 0.55 : 1.1)
-    .pathDashLength(d=> d.kind==="searoute" ? 0.35 : 1)
-    .pathDashGap(d=> d.kind==="searoute" ? 0.28 : 0)
+    .pathColor(()=>["rgba(232,200,119,0.85)","rgba(232,200,119,0.85)"])
+    .pathStroke(0.55)
+    .pathDashLength(0.35)
+    .pathDashGap(0.28)
     .pathDashAnimateTime(0)
     .pathTransitionDuration(0);
 
@@ -2696,11 +2978,11 @@ function renderGlobe(){
   const st = game.state;
   if(!st || !st.territories || !globe) return;
 
-  // confini dei territori: ricolora solo quando cambia davvero un
-  // proprietario (non ad ogni variazione di armate)
+  // colori dei territori: si ridipinge la texture solo quando cambia
+  // davvero un proprietario (non ad ogni variazione di armate)
   const territoryOwnerSig = TERRITORIES.map(t=> st.territories[t.id]?.owner||"").join(",");
   if(territoryOwnerSig !== lastTerritoryOwnerSig){
-    globe.polygonsData([...TERRITORY_FEATURES]);
+    applyTerritoryTexture();
     lastTerritoryOwnerSig = territoryOwnerSig;
   }
 
@@ -2713,24 +2995,16 @@ function renderGlobe(){
     prevArmies[t.id] = info.armies; prevOwners[t.id] = info.owner;
   });
 
-  // labels (dot colorato per proprietario + numero armate)
-  // Ricalcolate solo se armate/proprietari sono davvero cambiati: evita di
-  // ricostruire la mesh three.js del globo ad ogni piccolo giro di render.
+  // numero di armate su ogni territorio
+  // Ricalcolato solo se armate/proprietari sono davvero cambiati: evita di
+  // ricostruire gli elementi ad ogni piccolo giro di render.
   const labelsSig = TERRITORIES.map(t=>{ const i=st.territories[t.id]; return t.id+":"+(i?.armies??0)+":"+(i?.owner??""); }).join("|");
   if(labelsSig !== lastLabelsSig){
     const labels = TERRITORIES.map(t=>{
       const info = st.territories[t.id];
-      const armies = info?.armies ?? 0;
-      const mine = info?.owner === me.playerId;
-      return {
-        id:t.id, lat:t.lat, lng:t.lng, text:String(armies),
-        size: 0.85 + Math.min(armies,25)*0.028,
-        dot: 0.34 + Math.min(armies,18)*0.026,
-        color: info?.owner ? ownerColor(info.owner) : "#e7ecf5",
-        mine,
-      };
+      return { id:t.id, lat:t.lat, lng:t.lng, text:String(info?.armies ?? 0) };
     });
-    globe.labelsData(labels);
+    globe.htmlElementsData(labels);
     lastLabelsSig = labelsSig;
   }
 
@@ -2888,6 +3162,37 @@ function nearestTerritory(lat, lng){
     if(d < bestD){ bestD = d; best = t.id; }
   });
   return best;
+}
+
+// Territorio che contiene davvero il punto cliccato (ray casting sugli
+// anelli del poligono, in coordinate lng/lat). Serve perché i territori non
+// sono più oggetti 3D cliccabili: così il click combacia esattamente con la
+// forma dipinta sulla texture, anche lontano dal puntino centrale.
+function territoryAt(lat, lng){
+  for(const tid of Object.keys(TERRITORY_POLYGONS)){
+    const geom = TERRITORY_POLYGONS[tid];
+    const parts = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    for(const rings of parts){
+      // rings[0] è il contorno esterno, gli altri eventuali buchi
+      if(!pointInRing(lng, lat, rings[0])) continue;
+      let inHole = false;
+      for(let h = 1; h < rings.length; h++){
+        if(pointInRing(lng, lat, rings[h])){ inHole = true; break; }
+      }
+      if(!inHole) return tid;
+    }
+  }
+  return null;
+}
+
+function pointInRing(x, y, ring){
+  let inside = false;
+  for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    if(((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
 }
 
 // Click su un territorio (dal puntino o da un punto qualsiasi del globo):
@@ -3071,6 +3376,19 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
     const defenderId = st.territories[toId].owner;
     st.territories[toId].owner = me.playerId;
     st.conqueredThisTurn = true;
+
+    // Le armate obbligatorie entrano SUBITO, nello stesso salvataggio che
+    // cambia il proprietario. Prima il territorio veniva assegnato con 0
+    // armate e riempito solo dopo la conferma nella finestra: se il
+    // giocatore la chiudeva (o si disconnetteva) restava suo con 0 armate,
+    // e nel frattempo tutti gli altri lo vedevano vuoto.
+    // Come da regole, si spostano almeno tante armate quanti erano i dadi
+    // usati, lasciandone comunque una nel territorio di partenza.
+    const available = st.territories[fromId].armies - 1;   // ≥1: chi conquista ha sempre di che spostare
+    const minMove = Math.max(1, Math.min(atkDice, available));
+    st.territories[fromId].armies -= minMove;
+    st.territories[toId].armies = minMove;
+
     await logHistory(gameId, me.playerId, me.name, "conquer", `⚔ ${me.name} conquista ${t2.name}!`);
     const stillOwns = Object.values(st.territories).some(t=>t.owner===defenderId);
     if(!stillOwns && defenderId){
@@ -3085,7 +3403,7 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
     const winnerCheck = checkVictory(st) || checkMissionVictory(st, me.playerId);
     if(winnerCheck) return;
     $("attackModal").style.display = "none";
-    openConquestModal(fromId, toId, atkDice);
+    openConquestModal(fromId, toId);
     return;
   }
 
@@ -3097,25 +3415,36 @@ async function doAttackRound(fromId, toId, diceCount, redraw){
   } else { setTimeout(()=>redraw(), 550); }
 }
 
-function openConquestModal(fromId, toId, minMove){
+// Finestra per spostare armate AGGIUNTIVE nel territorio appena conquistato.
+// Il minimo obbligatorio è già stato spostato durante la conquista, quindi
+// chiudere questa finestra non lascia più il territorio sguarnito.
+function openConquestModal(fromId, toId){
   const st = game.state;
   const t1 = TM[fromId], t2 = TM[toId];
-  const maxMove = st.territories[fromId].armies - 1;
-  let val = Math.min(Math.max(minMove,1), maxMove);
-  $("numberModalTitle").textContent = `Sposta armate a ${t2.name}`;
+  const already = st.territories[toId].armies;
+  const maxExtra = st.territories[fromId].armies - 1;   // una resta sempre di presidio
+  if(maxExtra <= 0){
+    selection = {mode:null, from:null, to:null}; render();
+    return;   // niente da decidere: non vale la pena aprire la finestra
+  }
+  let val = 0;
+  $("numberModalTitle").textContent = `Rinforza ${t2.name}`;
   $("numberModalBody").innerHTML = `
-    <p class="text-sm muted">Territorio conquistato! Quante armate spostare da ${t1.name}? (min ${minMove}, max ${maxMove})</p>
+    <p class="text-sm muted">Territorio conquistato con <b>${already}</b> armate.
+    Vuoi spostarne altre da ${t1.name}? (max ${maxExtra})</p>
     <div class="stepper"><button id="stepMinus">−</button><div class="val" id="stepVal">${val}</div><button id="stepPlus">+</button></div>
     <button class="btn btn-primary btn-block" id="confirmMove">Conferma</button>`;
   $("numberModal").style.display = "flex";
   const upd = ()=>{ $("stepVal").textContent = val; };
-  $("stepMinus").onclick = ()=>{ if(val>minMove) val--; upd(); };
-  $("stepPlus").onclick = ()=>{ if(val<maxMove) val++; upd(); };
+  $("stepMinus").onclick = ()=>{ if(val>0) val--; upd(); };
+  $("stepPlus").onclick = ()=>{ if(val<maxExtra) val++; upd(); };
   $("confirmMove").onclick = async ()=>{
     $("numberModal").style.display = "none";
-    const st2 = structuredClone(game.state);
-    st2.territories[fromId].armies -= val; st2.territories[toId].armies += val;
-    await saveState(st2);
+    if(val > 0){
+      const st2 = structuredClone(game.state);
+      st2.territories[fromId].armies -= val; st2.territories[toId].armies += val;
+      await saveState(st2);
+    }
     selection = {mode:null, from:null, to:null}; render();
   };
 }
@@ -3893,7 +4222,13 @@ function syncHotseat(){
   if(!hotseatOn()){ window.HS && window.HS.bar(null); return; }
   const st = game && game.state;
   if(!st || !st.order || !st.order.length) return;
-  const curId = st.order[st.currentPlayerIndex];
+
+  // Durante un'asta non comanda chi ha il turno, ma chi deve rilanciare:
+  // senza questo il dispositivo restava al giocatore di turno e gli altri
+  // partecipanti non potevano mai offrire, bloccando l'asta.
+  const auc = st.auction;
+  const inAuction = !!(auc && auc.remaining && auc.remaining.length);
+  const curId = inAuction ? auc.remaining[auc.turnIndex] : st.order[st.currentPlayerIndex];
   const cur = players.find(p=>p.id === curId);
   if(!cur) return;
 
@@ -3909,7 +4244,10 @@ function syncHotseat(){
   if(hotseatPrev && hotseatPrev !== cur.id && !st.winner){
     if(hotseatPaused) return;
     hotseatPaused = true;
-    window.HS.handover(cur.name, cur.color, "Tocca a te: prendi il dispositivo.", ()=>takeOver(true));
+    const sub = inAuction
+      ? `Asta su ${BOARD[auc.idx].name}: tocca a te rilanciare o passare.`
+      : "Tocca a te: prendi il dispositivo.";
+    window.HS.handover(cur.name, cur.color, sub, ()=>takeOver(true));
     return;
   }
   takeOver(false);
@@ -4088,6 +4426,7 @@ function render(){
     renderTurnBanner();
     renderTradeBanner();
     renderAuctionBanner();
+    renderAuctionModal();
     renderNewsPanel();
   }
 }
@@ -5346,6 +5685,17 @@ function playerName(pid){ const p = players.find(pl=>pl.id===pid); return p?p.na
 function isMyTurn(){ const st=game.state; return st && st.order && st.order[st.currentPlayerIndex]===me.playerId; }
 
 // ============================================================ TURNO: TIRO DADI & MOVIMENTO
+// Disegna le facce dei dadi come una vera griglia di puntini (pattern
+// standard dei dadi fisici), non un'emoji: più leggibile e coerente col
+// resto del tabellone.
+const DIE_PIPS = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
+function dieFaceHtml(n){
+  const on = new Set(DIE_PIPS[n] || []);
+  let out = "";
+  for(let i=1;i<=9;i++) out += `<span class="pip ${on.has(i)?"on":""}"></span>`;
+  return out;
+}
+
 async function rollDice(){
   const st = structuredClone(game.state);
   if(!isMyTurn() || st.turn.hasRolled) return;
@@ -5358,10 +5708,15 @@ async function rollDice(){
 
   await logHistory(gameId, me.playerId, me.name, "roll", `${me.name} tira ${d1} e ${d2}${isDouble?" — doppio!":""}`);
 
+  // Il lancio si vede al centro del tabellone: prima i dadi rotolano, poi
+  // si fermano sul risultato, così è chiaro a colpo d'occhio cosa è uscito.
+  await showDiceRoll(d1, d2, isDouble);
+
   if(st.turn.doublesStreak >= 3){
     sendToJail(st, me.playerId);
     await logHistory(gameId, me.playerId, me.name, "triple_double", `${me.name} fa tre doppi consecutivi e finisce dritto in prigione!`);
     st.turn.hasRolled = true;
+    hideDiceOverlay();
     await saveState(st);
     return;
   }
@@ -5369,6 +5724,7 @@ async function rollDice(){
   const steps = d1+d2;
   const from = st.positions[me.playerId];
   await animateLocalMove(from, steps);
+  hideDiceOverlay();
   const to = (from+steps)%40;
   const passedGo = from+steps >= 40;
   st.positions[me.playerId] = to;
@@ -5383,19 +5739,69 @@ async function rollDice(){
   if(pendingBuyIndex !== null) openBuyModal(pendingBuyIndex);
 }
 
+// Fase 1 dell'overlay: rotolio animato dei due dadi, poi si fermano sul
+// valore reale. Resta visibile mentre inizia lo spostamento (fase 2).
+async function showDiceRoll(d1, d2, isDouble){
+  const overlay = $("diceOverlay"), die1 = $("die1"), die2 = $("die2");
+  if(!overlay || !die1 || !die2) return;
+
+  $("diceWho").querySelector(".dot").style.background = colorOf(me.playerId);
+  $("diceWho").querySelector(".dot").style.color = colorOf(me.playerId);
+  $("diceWho").querySelector("span:last-child").textContent = `${me.name} tira i dadi`;
+  $("diceTotal").textContent = "";
+  $("diceSub").textContent = "";
+  $("diceTrack").innerHTML = "";
+  die1.className = "die rolling"; die2.className = "die rolling";
+  overlay.style.display = "flex";
+
+  const spin = setInterval(()=>{
+    die1.innerHTML = dieFaceHtml(1+Math.floor(Math.random()*6));
+    die2.innerHTML = dieFaceHtml(1+Math.floor(Math.random()*6));
+  }, 80);
+  await sleep(700);
+  clearInterval(spin);
+
+  die1.className = "die settle"; die2.className = "die settle";
+  die1.innerHTML = dieFaceHtml(d1); die2.innerHTML = dieFaceHtml(d2);
+  $("diceTotal").textContent = `${d1} + ${d2} = ${d1+d2}`;
+  $("diceSub").textContent = isDouble ? "Doppio! Giocherai ancora dopo questo turno." : "";
+  await sleep(650);
+}
+
+function hideDiceOverlay(){ const o = $("diceOverlay"); if(o) o.style.display = "none"; }
+
+// Fase 2 dell'overlay: la pedina avanza casella per casella, con un alone
+// più marcato e una scia luminosa sulle caselle attraversate, mentre sotto
+// ai dadi compare il nome della casella di arrivo passo dopo passo.
 async function animateLocalMove(from, steps){
+  const track = $("diceTrack");
+  if(track){ track.innerHTML = Array.from({length:steps},()=>`<span class="step"></span>`).join(""); }
+  $("diceSub").textContent = `${me.name} si muove di ${steps} caselle…`;
+
   let pos = from;
+  const lit = [];
   for(let i=0;i<steps;i++){
     pos = (pos+1)%40;
     const cell = document.querySelector(`.board-cell[data-index="${pos}"]`);
     if(cell){
       let ghost = document.getElementById("ghostToken");
-      if(!ghost){ ghost = document.createElement("div"); ghost.id="ghostToken"; ghost.className="token"; ghost.style.setProperty("--pc", colorOf(me.playerId)); ghost.style.left="6px"; ghost.style.top="6px"; }
+      if(!ghost){
+        ghost = document.createElement("div");
+        ghost.id = "ghostToken"; ghost.className = "token token-move";
+        ghost.style.setProperty("--pc", colorOf(me.playerId));
+        ghost.style.left = "6px"; ghost.style.top = "6px";
+      }
       cell.appendChild(ghost);
+      cell.classList.add("path-lit");
+      lit.push(cell);
+      $("diceSub").textContent = `${me.name} → ${BOARD[pos].name}`;
     }
-    await sleep(80);
+    const step = track && track.children[i];
+    if(step) step.classList.add("done");
+    await sleep(160);
   }
   document.getElementById("ghostToken")?.remove();
+  lit.forEach(c=>c.classList.remove("path-lit"));
 }
 
 // ============================================================ LANDING / RENDITA / TASSE / CARTE
@@ -5738,12 +6144,72 @@ function renderAuctionBanner(){
     ${myTurn ? `<div class="flex gap-8">
       <button class="btn btn-gold btn-sm" id="auctionBidBtn">Rilancia L. ${nextBid}</button>
       <button class="btn btn-ghost btn-sm" id="auctionPassBtn">Passo</button>
-    </div>` : `<div class="text-xs" style="color:var(--muted)">In attesa degli altri giocatori…</div>`}`;
+    </div>` : `<div class="text-xs" style="color:var(--muted)">In attesa degli altri giocatori…</div>`}
+    <button class="btn btn-ghost btn-sm btn-block" id="auctionReopenBtn" style="margin-top:8px;">↩ Riapri la finestra centrale</button>`;
 
   if(myTurn){
     $("auctionBidBtn").onclick = auctionBid;
     $("auctionPassBtn").onclick = auctionPass;
   }
+  $("auctionReopenBtn").onclick = ()=>{ auctionModalMin = false; renderAuctionModal(); };
+}
+
+// L'asta si gioca soprattutto qui: si apre da sé a TUTTI i partecipanti
+// appena parte, e resta sincronizzata a ogni rilancio. Chi la riduce a
+// icona la trova comunque nel pannello laterale, con un pulsante per
+// riaprirla.
+let auctionModalMin = false;
+let auctionModalLast = null;   // per riaprire in automatico su una nuova asta
+function renderAuctionModal(){
+  const st = game.state;
+  const a = st.auction;
+  const modal = $("auctionModal");
+  if(!modal) return;
+  if(!a){ modal.style.display = "none"; auctionModalMin = false; auctionModalLast = null; return; }
+
+  if(auctionModalLast !== a.idx){ auctionModalLast = a.idx; auctionModalMin = false; } // asta nuova: riapri per tutti
+  if(auctionModalMin){ modal.style.display = "none"; return; }
+
+  const space = BOARD[a.idx];
+  const swatch = space.group ? GROUP_COLORS[space.group] : (space.type==="station" ? "#8a8a8a" : "#3aa0c8");
+  const myTurn = a.remaining[a.turnIndex] === me.playerId;
+  const nextBid = a.bid === 0 ? 10 : a.bid + 10;
+  const canAfford = st.money[me.playerId] >= nextBid;
+
+  const parties = a.remaining.map(id=>{
+    const isTurn = id === a.remaining[a.turnIndex];
+    return `<span class="auction-chip ${isTurn?'turn':''}"><span class="dot" style="background:${colorOf(id)}"></span>${escapeHtml(playerName(id))}${a.leader===id?' 👑':''}</span>`;
+  }).join("");
+  const outParties = (st.order||[]).filter(id=>!a.remaining.includes(id) && !(st.bankrupt||[]).includes(id))
+    .map(id=>`<span class="auction-chip out"><span class="dot" style="background:${colorOf(id)}"></span>${escapeHtml(playerName(id))}</span>`).join("");
+
+  $("auctionModalBody").innerHTML = `
+    <div class="auction-lot">
+      <div class="swatch" style="background:${swatch}"></div>
+      <div>
+        <div class="nm">${escapeHtml(space.name)}</div>
+        <div class="sub">Base d'asta L. 10 · in palio al miglior offerente</div>
+      </div>
+    </div>
+    <div class="auction-bid-now">
+      <div class="amt">L. ${a.bid || 0}</div>
+      <div class="who">${a.leader ? "offerta di " + escapeHtml(playerName(a.leader)) : "nessuna offerta ancora"}</div>
+    </div>
+    <div class="auction-parties">${parties}${outParties}</div>
+    ${myTurn
+      ? `<div class="flex gap-8">
+          <button class="btn btn-gold btn-block" id="auctionModalBid" ${canAfford?'':'disabled'}>${canAfford ? `Rilancia a L. ${nextBid}` : `Non hai L. ${nextBid}`}</button>
+          <button class="btn btn-ghost btn-block" id="auctionModalPass">Passo</button>
+        </div>`
+      : `<div class="auction-wait">In attesa di <b>${escapeHtml(playerName(a.remaining[a.turnIndex]))}</b>…</div>`}`;
+
+  modal.style.display = "flex";
+  if(myTurn){
+    $("auctionModalBid").onclick = auctionBid;
+    $("auctionModalPass").onclick = auctionPass;
+  }
+  const closeBtn = $("auctionModalClose");
+  if(closeBtn) closeBtn.onclick = ()=>{ auctionModalMin = true; modal.style.display = "none"; };
 }
 
 // ============================================================ PRIGIONE
@@ -5766,17 +6232,20 @@ async function rollForJail(){
   const st = structuredClone(game.state);
   const d1 = 1+Math.floor(Math.random()*6), d2 = 1+Math.floor(Math.random()*6);
   await logHistory(gameId, me.playerId, me.name, "jail_roll", `${me.name} tira ${d1} e ${d2} per uscire di prigione`);
+  await showDiceRoll(d1, d2, d1===d2);
   if(d1===d2){
     st.jail[me.playerId] = { inJail:false, turns:0 };
     const steps = d1+d2;
     const from = st.positions[me.playerId];
     await animateLocalMove(from, steps);
+    hideDiceOverlay();
     const to = (from+steps)%40;
     st.positions[me.playerId] = to;
     pendingBuyIndex = null;
     await resolveLanding(st, me.playerId, to, d1+d2, 0);
     await logHistory(gameId, me.playerId, me.name, "jail_out", `${me.name} fa doppio ed esce di prigione!`);
   } else {
+    hideDiceOverlay();
     st.jail[me.playerId].turns++;
     if(st.jail[me.playerId].turns >= 3){
       st.money[me.playerId] -= 50;
